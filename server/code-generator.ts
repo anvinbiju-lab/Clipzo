@@ -2,13 +2,13 @@ import crypto from 'node:crypto';
 
 // Human-friendly alphabet excluding ambiguous characters:
 // No 0 / O, no 1 / I / l
-export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+export const ROOM_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /**
  * Generate a cryptographically secure room code
  * @param length Default 4 characters
  */
-export function generateRawRoomCode(length: number = 4): string {
+export function generateRawRoomCode(length: number = 2): string {
   const chars = ROOM_CODE_ALPHABET;
   const charsLen = chars.length;
   let code = '';
@@ -29,7 +29,7 @@ export function generateUniqueRoomCode(
   activeCount: number = 0
 ): string {
   // If active rooms exceed 50,000, dynamically bump to 5 characters
-  const length = activeCount > 50000 ? 5 : 4;
+  const length = activeCount > 50000 ? 3 : 2;
   let attempts = 0;
   const maxAttempts = 20;
 
