@@ -14,7 +14,7 @@ export default function JoinPage() {
   // Automatically attempt joining upon mounting with the URL code
   const hasRequestedJoin = useRef(false);
   useEffect(() => {
-    if (rawCode && rawCode.length === 4 && !socket.code && !hasRequestedJoin.current) {
+    if (rawCode && rawCode.length === 2 && !socket.code && !hasRequestedJoin.current) {
       hasRequestedJoin.current = true;
       socket.joinRoom(rawCode, 'phone');
     }

@@ -160,14 +160,14 @@ export function PhoneView({
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
-                maxLength={4}
+                maxLength={2}
                 className="w-56 text-center font-mono text-4xl sm:text-5xl font-black tracking-widest px-4 py-3 bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-300 dark:border-neutral-700 rounded-2xl focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-hidden transition-all text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
               />
             </div>
 
             <button
               type="submit"
-              disabled={inputCode.length !== 4}
+              disabled={inputCode.length !== 2}
               className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-sm transition-colors ${
                 inputCode.length === 4
                   ? 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900'
