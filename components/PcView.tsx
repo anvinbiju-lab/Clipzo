@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { copyToClipboard } from '../lib/clipboard';
 import { PRIVACY_STATEMENT } from '../lib/constants';
 import type { SnippetItem } from '../types/protocol';
@@ -38,8 +38,10 @@ export function PcView({
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
 
   // Auto-trigger room creation if not yet initialized
+  const hasRequestedRoom = useRef(false);
   useEffect(() => {
-    if (!code && !expired) {
+    if (!code && !expired && !hasRequestedRoom.current) {
+      hasRequestedRoom.current = true;
       onCreateRoom();
     }
   }, [code, expired, onCreateRoom]);

@@ -35,7 +35,8 @@ async function start() {
         wss.emit('connection', ws, req);
       });
     } else {
-      socket.destroy();
+      // Let Next.js handle HMR upgrades
+      // We don't destroy the socket here
     }
   });
 

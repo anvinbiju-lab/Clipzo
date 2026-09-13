@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Header } from '../../../components/Header';
 import { PhoneView } from '../../../components/PhoneView';
@@ -12,11 +12,13 @@ export default function JoinPage() {
   const socket = useQuickDropSocket('phone');
 
   // Automatically attempt joining upon mounting with the URL code
+  const hasRequestedJoin = useRef(false);
   useEffect(() => {
-    if (rawCode && rawCode.length === 4 && !socket.code) {
+    if (rawCode && rawCode.length === 4 && !socket.code && !hasRequestedJoin.current) {
+      hasRequestedJoin.current = true;
       socket.joinRoom(rawCode, 'phone');
     }
-  }, [rawCode, socket]);
+  }, [rawCode, socket.code, socket.joinRoom]);
 
   return (
     <main className="min-h-screen flex flex-col justify-between">
