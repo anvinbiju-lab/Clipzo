@@ -113,18 +113,7 @@ export function PcView({
           </div>
         ) : (
           <div className="py-4">
-            {error ? (
-              <button 
-                onClick={() => { hasRequestedRoom.current = false; onCreateRoom(); }} 
-                className="px-4 py-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg text-sm font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-700 transition"
-              >
-                Retry Connection
-              </button>
-            ) : (
-              <span className="text-neutral-400 text-sm font-medium animate-pulse">
-                Generating code...
-              </span>
-            )}
+            <span className="text-neutral-400 text-sm font-medium animate-pulse">Generating code...</span>
           </div>
         )}
 
