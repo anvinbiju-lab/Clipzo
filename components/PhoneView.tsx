@@ -63,7 +63,7 @@ export function PhoneView({
     setInputCode(sanitized);
 
     // Auto-submit when exactly 4 valid characters are reached
-    if (sanitized.length === 4) {
+    if (sanitized.length === 2) {
       onJoinRoom(sanitized);
     }
   };
@@ -169,7 +169,7 @@ export function PhoneView({
               type="submit"
               disabled={inputCode.length !== 2}
               className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-sm transition-colors ${
-                inputCode.length === 4
+                inputCode.length === 2
                   ? 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900'
                   : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
               }`}
