@@ -70,7 +70,7 @@ export function PhoneView({
 
   const handleConnectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputCode.length === 4) {
+    if (inputCode.length === 2) {
       onJoinRoom(inputCode);
     }
   };
@@ -146,7 +146,7 @@ export function PhoneView({
             Enter PC Code
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">
-            Look at the 4-character code displayed on the computer screen.
+            Look at the 2-character code displayed on the computer screen.
           </p>
 
           <form onSubmit={handleConnectSubmit} className="space-y-5">
@@ -156,7 +156,7 @@ export function PhoneView({
                 type="text"
                 value={inputCode}
                 onChange={handleCodeChange}
-                placeholder="ABCD"
+                placeholder="AB"
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
