@@ -9,23 +9,21 @@ import type { Role } from '../types/protocol';
 
 export default function HomePage() {
   const [role, setRole] = useState<Role>('pc');
-  const [hasDetectedRole, setHasDetectedRole] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   // Auto-detect mobile vs desktop on initial client mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && !hasDetectedRole) {
-      const ua = navigator.userAgent.toLowerCase();
-      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
-      if (isMobile) {
-        setRole('phone');
-      } else {
-        setRole('pc');
-      }
-      setHasDetectedRole(true);
+    setHasMounted(true);
+    if (window.innerWidth >= 768) {
+      setRole('pc');
+    } else {
+      setRole('phone');
     }
-  }, [hasDetectedRole]);
+  }, []);
 
   const socket = useQuickDropSocket(role);
+
+  if (!hasMounted) return <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950"></main>;
 
   return (
     <main className="min-h-screen flex flex-col justify-between">
