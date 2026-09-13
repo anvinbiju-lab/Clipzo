@@ -12,4 +12,4 @@ export const MAX_MESSAGE_SIZE_BYTES = 256 * 1024; // 256 KB
 export const MAX_HISTORY_ITEMS = 5;
 
 // Clean alphabet for 4-character codes (no 0, O, 1, I, l)
-export const VALID_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+export const VALID_CODE_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
