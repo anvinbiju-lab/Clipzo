@@ -62,10 +62,7 @@ export function PhoneView({
     const sanitized = sanitizeCode(e.target.value);
     setInputCode(sanitized);
 
-    // Auto-submit when exactly 4 valid characters are reached
-    if (sanitized.length === 2) {
-      onJoinRoom(sanitized);
-    }
+    // Removed auto-submit to prevent autofill bugs
   };
 
   const handleConnectSubmit = (e: React.FormEvent) => {
