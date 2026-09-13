@@ -229,7 +229,10 @@ export function useQuickDropSocket(initialRole?: Role) {
       };
 
       ws.onerror = () => {
-        // Will trigger onclose and attempt reconnect
+        setState((prev) => ({ 
+          ...prev, 
+          error: !prev.code ? 'Unable to connect to server. Ensure you ran "npm run dev" (tsx server.ts).' : 'Connection error' 
+        }));
       };
     } catch {
       setState((prev) => ({ ...prev, error: 'Connection error' }));
