@@ -60,8 +60,13 @@ export async function POST(req: Request) {
         room.lastActiveAt = Date.now();
 
         const peerConnected = body.role === 'pc' ? !!room.phoneToken : true;
-        const messages = room.httpMessageQueue || [];
-        room.httpMessageQueue = []; // Clear queue after reading
+        let messages: any[] = [];
+        
+        // Only PC should consume messages from the queue. Phone polling should not steal PC's messages.
+        if (body.role === 'pc') {
+          messages = room.httpMessageQueue || [];
+          room.httpMessageQueue = []; // Clear queue after reading
+        }
 
         return NextResponse.json({
           t: 'poll_result',

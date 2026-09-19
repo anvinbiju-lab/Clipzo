@@ -169,7 +169,14 @@ export function useQuickDropSocket(initialRole?: Role) {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          ws.close();
+        }
+      }, 3000);
+
       ws.onopen = () => {
+        clearTimeout(connectionTimeout);
         isHttpMode.current = false;
         reconnectAttemptsRef.current = 0;
         setState((prev) => ({ ...prev, connected: true, reconnecting: false, error: null }));
