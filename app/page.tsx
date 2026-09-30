@@ -52,6 +52,7 @@ export default function HomePage() {
               onCreateRoom={socket.createRoom}
               onDisconnect={socket.disconnect}
               onClearMessage={socket.clearLatestMessage}
+              onSendMessage={socket.sendMessage}
             />
           ) : (
             <PhoneView
@@ -61,9 +62,11 @@ export default function HomePage() {
               reconnecting={socket.reconnecting}
               error={socket.error}
               expired={socket.expired}
+              latestMessage={socket.latestMessage}
               history={socket.history}
               onJoinRoom={(c) => socket.joinRoom(c, 'phone')}
               onSendMessage={socket.sendMessage}
+              onClearMessage={socket.clearLatestMessage}
               onDisconnect={socket.disconnect}
               onClearError={socket.clearError}
             />

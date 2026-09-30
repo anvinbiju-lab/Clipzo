@@ -3,6 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PRIVACY_STATEMENT, VALID_CODE_CHARS } from '../lib/constants';
 import type { SnippetItem } from '../types/protocol';
+import { FileUploader } from './FileUploader';
+import { MessageRenderer } from './MessageRenderer';
+import { formatSnippetText } from '../lib/utils';
 
 interface PhoneViewProps {
   code: string | null;
@@ -12,11 +15,13 @@ interface PhoneViewProps {
   error: string | null;
   expired: boolean;
   history: SnippetItem[];
+  latestMessage?: SnippetItem | null;
   initialCode?: string;
   onJoinRoom: (code: string) => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onDisconnect: () => void;
   onClearError: () => void;
+  onClearMessage?: () => void;
 }
 
 export function PhoneView({
@@ -27,11 +32,13 @@ export function PhoneView({
   error,
   expired,
   history,
+  latestMessage,
   initialCode = '',
   onJoinRoom,
   onSendMessage,
   onDisconnect,
   onClearError,
+  onClearMessage,
 }: PhoneViewProps) {
   const [inputCode, setInputCode] = useState(initialCode);
   const [textPayload, setTextPayload] = useState('');
@@ -269,6 +276,41 @@ export function PhoneView({
         </div>
       </div>
 
+      <FileUploader onSendFile={onSendMessage} />
+
+      {/* Received Text Card */}
+      {latestMessage && (
+        <div className="w-full mt-6 bg-white dark:bg-neutral-900 border-2 border-neutral-900 dark:border-neutral-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+                Received Text
+              </h2>
+            </div>
+            <span className="text-xs text-neutral-400 font-mono">
+              {new Date(latestMessage.timestamp).toLocaleTimeString()}
+            </span>
+          </div>
+
+          <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 overflow-x-auto max-h-[380px]">
+            <MessageRenderer text={latestMessage.text} />
+          </div>
+
+          {onClearMessage && (
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={onClearMessage}
+                className="w-full py-3.5 px-5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-sm transition-colors"
+              >
+                Clear Message
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sent History */}
       {history.length > 0 && (
         <div className="w-full mt-6">
@@ -282,7 +324,7 @@ export function PhoneView({
                 className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-2.5 px-3 flex items-center justify-between text-xs"
               >
                 <div className="font-mono text-neutral-600 dark:text-neutral-400 truncate max-w-[280px]">
-                  {item.text.replace(/\n/g, ' ')}
+                  {formatSnippetText(item.text)}
                 </div>
                 <span className="text-[10px] text-neutral-400 shrink-0">
                   {new Date(item.timestamp).toLocaleTimeString([], {

@@ -5,6 +5,9 @@ import { copyToClipboard } from '../lib/clipboard';
 import { PRIVACY_STATEMENT } from '../lib/constants';
 import type { SnippetItem } from '../types/protocol';
 import { QrCodeModal } from './QrCodeModal';
+import { FileUploader } from './FileUploader';
+import { MessageRenderer } from './MessageRenderer';
+import { formatSnippetText } from '../lib/utils';
 
 interface PcViewProps {
   code: string | null;
@@ -18,6 +21,7 @@ interface PcViewProps {
   onCreateRoom: () => void;
   onDisconnect: () => void;
   onClearMessage: () => void;
+  onSendMessage: (text: string) => Promise<boolean>;
 }
 
 export function PcView({
@@ -32,6 +36,7 @@ export function PcView({
   onCreateRoom,
   onDisconnect,
   onClearMessage,
+  onSendMessage,
 }: PcViewProps) {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
@@ -166,6 +171,11 @@ export function PcView({
         </div>
       </div>
 
+      {/* File Upload Section */}
+      {code && (
+        <FileUploader onSendFile={onSendMessage} />
+      )}
+
       {/* Received Text Card */}
       {latestMessage && (
         <div className="w-full mt-6 bg-white dark:bg-neutral-900 border-2 border-neutral-900 dark:border-neutral-100 rounded-2xl p-6 shadow-sm">
@@ -182,9 +192,7 @@ export function PcView({
           </div>
 
           <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 overflow-x-auto max-h-[380px]">
-            <pre className="font-mono text-sm text-neutral-900 dark:text-neutral-100 whitespace-pre-wrap break-all leading-relaxed select-all">
-              {latestMessage.text}
-            </pre>
+            <MessageRenderer text={latestMessage.text} />
           </div>
 
           {/* Action buttons */}
@@ -221,7 +229,7 @@ export function PcView({
                 className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 flex items-center justify-between gap-3 text-xs"
               >
                 <div className="font-mono text-neutral-700 dark:text-neutral-300 truncate max-w-[400px]">
-                  {item.text.replace(/\n/g, ' ')}
+                  {formatSnippetText(item.text)}
                 </div>
                 <button
                   type="button"
