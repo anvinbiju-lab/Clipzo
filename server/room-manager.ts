@@ -12,7 +12,8 @@ export interface Room {
   createdAt: number;
   lastActiveAt: number;
   seenMessageIds: Set<string>;
-  httpMessageQueue?: Array<{ t: 'msg', id: string, d: string, ts: number }>;
+  pcQueue?: Array<{ t: 'msg', id: string, d: string, ts: number }>;
+  phoneQueue?: Array<{ t: 'msg', id: string, d: string, ts: number }>;
 }
 
 export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes

@@ -42,8 +42,14 @@ export async function POST(req: Request) {
         const code = (roomManager as any).tokenToCode.get(body.token);
         const room = roomManager.getRoom(code);
         if (room) {
-          if (!room.httpMessageQueue) room.httpMessageQueue = [];
-          room.httpMessageQueue.push({ t: 'msg', id: body.id, d: body.d, ts: Date.now() });
+          const isPhone = room.phoneToken === body.token;
+          if (isPhone) {
+            if (!room.pcQueue) room.pcQueue = [];
+            room.pcQueue.push({ t: 'msg', id: body.id, d: body.d, ts: Date.now() });
+          } else {
+            if (!room.phoneQueue) room.phoneQueue = [];
+            room.phoneQueue.push({ t: 'msg', id: body.id, d: body.d, ts: Date.now() });
+          }
         }
 
         return NextResponse.json({ t: 'ack', id: ackId });
@@ -62,10 +68,12 @@ export async function POST(req: Request) {
         const peerConnected = body.role === 'pc' ? !!room.phoneToken : true;
         let messages: any[] = [];
         
-        // Only PC should consume messages from the queue. Phone polling should not steal PC's messages.
         if (body.role === 'pc') {
-          messages = room.httpMessageQueue || [];
-          room.httpMessageQueue = []; // Clear queue after reading
+          messages = room.pcQueue || [];
+          room.pcQueue = []; // Clear queue after reading
+        } else if (body.role === 'phone') {
+          messages = room.phoneQueue || [];
+          room.phoneQueue = []; // Clear queue after reading
         }
 
         return NextResponse.json({
