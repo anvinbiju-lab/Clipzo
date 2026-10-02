@@ -149,7 +149,7 @@ export function ReceiverView({
             Receive Files
           </h2>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-8 font-medium relative z-10">
-            Enter the 2 to 4-character code shown on the sender&apos;s screen.
+            Enter the 2-character code shown on the sender&apos;s screen.
           </p>
 
           {error && (
@@ -168,13 +168,13 @@ export function ReceiverView({
                   setInputCode(e.target.value.toUpperCase().trim());
                   if (error) onClearError();
                 }}
-                maxLength={6}
+                maxLength={2}
                 autoFocus
                 autoCapitalize="characters"
                 autoCorrect="off"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="e.g. 5D"
+                placeholder=""
                 className="relative w-full py-5 px-4 text-center font-mono text-5xl font-black tracking-[0.25em] bg-white/50 dark:bg-black/40 border border-neutral-200/50 dark:border-neutral-700/50 rounded-2xl focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-hidden text-neutral-900 dark:text-white uppercase placeholder:text-neutral-300 dark:placeholder:text-neutral-800 shadow-inner backdrop-blur-md transition-all"
               />
             </div>
