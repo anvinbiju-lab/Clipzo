@@ -59,10 +59,11 @@ export function SenderView({
   // Clean and filter code input
   const sanitizeCode = (val: string) => {
     return val
+      .toUpperCase()
       .split('')
       .filter((ch) => VALID_CODE_CHARS.includes(ch))
       .join('')
-      .slice(0, 4);
+      .slice(0, 2);
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {

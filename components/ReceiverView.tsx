@@ -41,6 +41,9 @@ export function ReceiverView({
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
+  const [textPayload, setTextPayload] = useState('');
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Auto-trigger room creation if not yet initialized
   const hasRequestedRoom = useRef(false);
@@ -71,6 +74,36 @@ export function ReceiverView({
     setTimeout(() => {
       onClearMessage();
     }, 500);
+  };
+
+  const handleSend = async () => {
+    if (!textPayload || sendState === 'sending') return;
+
+    setSendState('sending');
+    const success = await onSendMessage(textPayload);
+
+    if (success) {
+      setSendState('sent');
+      setTextPayload('');
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+      setTimeout(() => {
+        setSendState('idle');
+      }, 2500);
+    } else {
+      setSendState('failed');
+      setTimeout(() => {
+        setSendState('idle');
+      }, 3000);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   const joinUrl = typeof window !== 'undefined' && code ? `${window.location.origin}/j/${code}` : '';
@@ -170,6 +203,60 @@ export function ReceiverView({
           </button>
         </div>
       </div>
+
+      {/* Main Send Card */}
+      {code && (
+        <div className="w-full mt-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-xs">
+          <label
+            htmlFor="drop-textarea"
+            className="block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2"
+          >
+            Paste text / code
+          </label>
+
+          <textarea
+            id="drop-textarea"
+            ref={textareaRef}
+            value={textPayload}
+            onChange={(e) => setTextPayload(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Paste code, URL, or notes here…"
+            rows={5}
+            className="w-full p-3.5 font-mono text-sm leading-relaxed bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-hidden text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 resize-y"
+          />
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <span className="text-xs text-neutral-400 font-mono">
+              {textPayload.length > 0 ? `${textPayload.length} chars` : ''}
+            </span>
+
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!textPayload.trim() || sendState === 'sending'}
+              className={`py-3 px-8 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center space-x-2 ${
+                sendState === 'sent'
+                  ? 'bg-emerald-600 text-white font-bold'
+                  : sendState === 'failed'
+                  ? 'bg-red-600 text-white'
+                  : textPayload.trim() && sendState !== 'sending'
+                  ? 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900'
+                  : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
+              }`}
+            >
+              <span>
+                {sendState === 'sending'
+                  ? 'Sending…'
+                  : sendState === 'sent'
+                  ? 'Sent ✓'
+                  : sendState === 'failed'
+                  ? 'Not delivered'
+                  : 'SEND'}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* File Upload Section — also available for receiver to send back */}
       {code && (
