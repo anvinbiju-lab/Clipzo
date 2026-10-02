@@ -9,62 +9,71 @@ import type { Role } from '../types/protocol';
 
 function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8">
-      <div className="w-10 h-10 rounded-xl bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center font-black text-white dark:text-neutral-900 text-sm shadow-sm mb-4">
-        QD
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden min-h-screen">
+      {/* Decorative background blur elements */}
+      <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center font-black text-white text-2xl shadow-xl shadow-blue-500/25 mb-8 transform transition-transform hover:scale-105">
+          QD
+        </div>
+        <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-neutral-900 dark:text-white mb-5 text-center leading-tight">
+          Share instantly.<br/>
+          <span className="text-gradient">No limits.</span>
+        </h1>
+        <p className="text-base sm:text-lg text-neutral-500 dark:text-neutral-400 mb-12 text-center max-w-sm font-medium">
+          Ultra-fast, ephemeral text and file transfer. Works securely across all your devices.
+        </p>
+
+        <div className="w-full space-y-4">
+          <button
+            type="button"
+            onClick={() => onSelect('send')}
+            className="w-full group glass-panel glass-panel-hover rounded-3xl p-6 sm:p-8 text-left transition-all duration-300 cursor-pointer overflow-hidden relative"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative z-10 flex items-center space-x-5">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-inner">
+                📤
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  Send
+                </h2>
+                <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 mt-1">
+                  Create a room to drop files & text.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelect('receive')}
+            className="w-full group glass-panel glass-panel-hover rounded-3xl p-6 sm:p-8 text-left transition-all duration-300 cursor-pointer overflow-hidden relative"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative z-10 flex items-center space-x-5">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-inner">
+                📥
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  Receive
+                </h2>
+                <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 mt-1">
+                  Enter a code to collect your files.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <p className="mt-14 text-xs font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 text-center opacity-70">
+          Zero signup • Ephemeral • 100% free
+        </p>
       </div>
-      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-neutral-50 mb-2">
-        QuickDrop
-      </h1>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-10 text-center max-w-xs">
-        Transfer text & files between devices instantly. No login. Ephemeral.
-      </p>
-
-      <div className="w-full max-w-sm space-y-4">
-        <button
-          type="button"
-          onClick={() => onSelect('send')}
-          className="w-full group relative overflow-hidden bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-2xl p-6 text-left transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center text-2xl shrink-0">
-              📤
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">
-                Send
-              </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Get a room code. Send text or multiple files.
-              </p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onSelect('receive')}
-          className="w-full group relative overflow-hidden bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 hover:border-emerald-500 dark:hover:border-emerald-400 rounded-2xl p-6 text-left transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center text-2xl shrink-0">
-              📥
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">
-                Receive
-              </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Type the sender&apos;s code. Download files & text.
-              </p>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      <p className="mt-10 text-[11px] text-neutral-400 dark:text-neutral-600 text-center max-w-xs">
-        Works on any device — phone, tablet, or computer. All data is deleted when the session ends.
-      </p>
     </div>
   );
 }
@@ -79,20 +88,22 @@ export default function HomePage() {
 
   const socket = useQuickDropSocket(role || undefined);
 
-  if (!hasMounted) return <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950"></main>;
+  if (!hasMounted) return <main className="min-h-screen"></main>;
 
-  // Show role selector if no role chosen yet
   if (!role) {
     return (
-      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <main className="min-h-screen flex flex-col bg-mesh">
         <RoleSelector onSelect={setRole} />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col justify-between">
-      <div>
+    <main className="min-h-screen flex flex-col bg-mesh relative">
+      {/* Decorative ambient blobs for active session */}
+      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
+      
+      <div className="flex-1 flex flex-col relative z-10">
         <Header
           currentRole={role}
           onRoleChange={(newRole) => {
@@ -108,7 +119,7 @@ export default function HomePage() {
           connected={socket.connected}
         />
 
-        <div className="container mx-auto">
+        <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 flex-1">
           {role === 'receive' ? (
             <ReceiverView
               code={socket.code}
@@ -141,11 +152,6 @@ export default function HomePage() {
           )}
         </div>
       </div>
-
-      <footer className="w-full py-4 text-center text-xs text-neutral-400 dark:text-neutral-600 border-t border-neutral-100 dark:border-neutral-900">
-        QuickDrop • Ephemeral transfer
-        <span className="ml-2 text-neutral-300 dark:text-neutral-700">Developed By Anvin</span>
-      </footer>
     </main>
   );
 }

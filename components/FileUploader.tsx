@@ -72,12 +72,14 @@ export function FileUploader({
   };
 
   return (
-    <div className="w-full mt-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm text-center">
-      <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+    <div className="w-full mt-6 glass-panel rounded-3xl p-8 sm:p-10 shadow-xl text-center relative overflow-hidden border border-neutral-200/50 dark:border-neutral-700/30">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
+      
+      <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-6 relative z-10">
         Share Files
       </h3>
 
-      <div>
+      <div className="relative z-10">
         <input
           type="file"
           multiple
@@ -89,17 +91,18 @@ export function FileUploader({
         />
         <label
           htmlFor="file-upload"
-          className={`cursor-pointer inline-flex items-center justify-center py-3.5 px-7 rounded-xl font-bold text-sm shadow-sm transition-all ${
+          className={`cursor-pointer inline-flex items-center justify-center py-4 px-10 rounded-2xl font-bold text-base shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0 w-full sm:w-auto ${
             uploading
-              ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
-              : 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900'
+              ? 'bg-neutral-200 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 cursor-not-allowed opacity-80'
+              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-blue-500/30'
           }`}
         >
-          {uploading ? (progressText || 'Uploading…') : '📁 Choose File(s) to Send'}
+          <span className="text-xl mr-3 opacity-90">📁</span>
+          {uploading ? (progressText || 'Uploading…') : 'Choose File(s) to Send'}
         </label>
       </div>
-      <p className="mt-3 text-xs text-neutral-400">
-        You can select multiple images or files at once • Powered by Vercel Blob
+      <p className="mt-5 text-xs font-bold text-neutral-400 dark:text-neutral-500 relative z-10 opacity-70">
+        Select multiple images or files at once • Powered by Vercel Blob
       </p>
     </div>
   );

@@ -11,54 +11,49 @@ interface HeaderProps {
   connected: boolean;
 }
 
-export function Header({ currentRole, onRoleChange, onGoHome, peerConnected, connected }: HeaderProps) {
+export function Header({ currentRole, onRoleChange, onGoHome }: HeaderProps) {
   return (
-    <header className="w-full border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 py-3 px-4 sm:px-8">
-      <div className="max-w-4xl mx-auto flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full glass-panel border-b-0 border-b border-neutral-200/50 dark:border-neutral-800/50 py-3 px-4 sm:px-8 shadow-sm">
+      <div className="max-w-5xl mx-auto flex items-center justify-between">
         <button
           type="button"
           onClick={onGoHome}
-          className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+          className="flex items-center space-x-3 group cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center font-bold text-white dark:text-neutral-900 text-sm shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center font-black text-white text-sm shadow-md group-hover:scale-105 transition-transform">
             QD
           </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 leading-none">
+          <div className="text-left hidden sm:block">
+            <h1 className="text-lg font-extrabold tracking-tight text-neutral-900 dark:text-white leading-none">
               QuickDrop
             </h1>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 hidden sm:block">
-              Send & receive. Any device. Ephemeral.
-            </p>
           </div>
         </button>
 
         {/* Role Toggle */}
-        <div className="flex items-center space-x-2">
-          <div className="inline-flex rounded-lg p-0.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => onRoleChange('receive')}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
-                currentRole === 'receive'
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 shadow-sm font-semibold'
-                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-              }`}
-            >
-              📥 Receive
-            </button>
-            <button
-              type="button"
-              onClick={() => onRoleChange('send')}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
-                currentRole === 'send'
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 shadow-sm font-semibold'
-                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-              }`}
-            >
-              📤 Send
-            </button>
-          </div>
+        <div className="flex items-center space-x-1.5 p-1 rounded-xl glass-panel-heavy shadow-inner bg-black/5 dark:bg-white/5">
+          <button
+            type="button"
+            onClick={() => onRoleChange('receive')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer ${
+              currentRole === 'receive'
+                ? 'bg-white dark:bg-neutral-800 text-emerald-600 dark:text-emerald-400 shadow-md transform scale-105'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
+            }`}
+          >
+            Receive
+          </button>
+          <button
+            type="button"
+            onClick={() => onRoleChange('send')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer ${
+              currentRole === 'send'
+                ? 'bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-md transform scale-105'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
+            }`}
+          >
+            Send
+          </button>
         </div>
       </div>
     </header>

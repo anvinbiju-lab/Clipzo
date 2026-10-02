@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from 'next';
+import { Outfit } from 'next/font/google';
 import './globals.css';
 
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
+
 export const metadata: Metadata = {
-  title: 'QuickDrop - Send & receive. Any device. No login.',
+  title: 'QuickDrop - Share instantly. No limits.',
   description: 'Ultra-fast temporary text and file transfer between any devices. No login required.',
   manifest: '/manifest.webmanifest',
   icons: {
@@ -12,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0a0a0a',
+  themeColor: '#030712',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -25,12 +28,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 selection:bg-neutral-200 dark:selection:bg-neutral-800">
-        {children}
+    <html lang="en" className={outfit.variable}>
+      <body className="min-h-screen flex flex-col font-sans bg-mesh selection:bg-blue-500/30 selection:text-blue-900 dark:selection:text-blue-100">
+        <div className="flex-1 relative z-10 flex flex-col">
+          {children}
+        </div>
         <aside
           aria-label="Watermark"
-          className="fixed bottom-3 right-3 z-50 pointer-events-none select-none rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide text-neutral-400 dark:text-neutral-500 bg-white/75 dark:bg-neutral-900/75 backdrop-blur-md border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs"
+          className="fixed bottom-4 right-4 z-50 pointer-events-none select-none rounded-full px-3.5 py-1.5 text-[10px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 glass-panel uppercase shadow-lg"
         >
           Developed By Anvin
         </aside>
