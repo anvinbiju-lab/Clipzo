@@ -10,11 +10,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       request,
       onBeforeGenerateToken: async (pathname) => {
         return {
+          addRandomSuffix: true,
+          allowOverwrite: true,
           tokenPayload: JSON.stringify({}),
         };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('blob upload completed', blob, tokenPayload);
       },
     });
 

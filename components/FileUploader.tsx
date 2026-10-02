@@ -23,7 +23,8 @@ export function FileUploader({
       if (selectedFiles.length === 1) {
         const file = selectedFiles[0];
         setProgressText('Uploading file…');
-        const newBlob = await upload(file.name, file, {
+        const uploadPath = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const newBlob = await upload(uploadPath, file, {
           access: 'public',
           handleUploadUrl: '/api/upload',
         });
@@ -37,7 +38,8 @@ export function FileUploader({
         for (let i = 0; i < selectedFiles.length; i++) {
           const file = selectedFiles[i];
           setProgressText(`Uploading ${i + 1} of ${selectedFiles.length}…`);
-          const newBlob = await upload(file.name, file, {
+          const uploadPath = `${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const newBlob = await upload(uploadPath, file, {
             access: 'public',
             handleUploadUrl: '/api/upload',
           });
