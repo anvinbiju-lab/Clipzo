@@ -2,28 +2,93 @@
 
 import React, { useEffect, useState } from 'react';
 import { Header } from '../components/Header';
-import { PcView } from '../components/PcView';
-import { PhoneView } from '../components/PhoneView';
+import { ReceiverView } from '../components/ReceiverView';
+import { SenderView } from '../components/SenderView';
 import { useQuickDropSocket } from '../lib/useQuickDropSocket';
 import type { Role } from '../types/protocol';
 
+function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8">
+      <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center font-bold text-white dark:text-neutral-900 text-sm shadow-sm mb-4">
+        QD
+      </div>
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 mb-2">
+        QuickDrop
+      </h1>
+      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-10 text-center max-w-xs">
+        Transfer text & files between any devices. No login. Ephemeral.
+      </p>
+
+      <div className="w-full max-w-sm space-y-4">
+        <button
+          type="button"
+          onClick={() => onSelect('receive')}
+          className="w-full group relative overflow-hidden bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 hover:border-neutral-900 dark:hover:border-neutral-100 rounded-2xl p-6 text-left transition-all duration-200 shadow-sm hover:shadow-md"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center text-2xl shrink-0">
+              📥
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">
+                Receive
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Get a code. Share it with the sender.
+              </p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelect('send')}
+          className="w-full group relative overflow-hidden bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 hover:border-neutral-900 dark:hover:border-neutral-100 rounded-2xl p-6 text-left transition-all duration-200 shadow-sm hover:shadow-md"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center text-2xl shrink-0">
+              📤
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">
+                Send
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Enter a code. Send text or files.
+              </p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <p className="mt-10 text-[11px] text-neutral-400 dark:text-neutral-600 text-center max-w-xs">
+        Works on any device — phone, tablet, or computer. All data is temporary and deleted when the session ends.
+      </p>
+    </div>
+  );
+}
+
 export default function HomePage() {
-  const [role, setRole] = useState<Role>('pc');
+  const [role, setRole] = useState<Role | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
 
-  // Auto-detect mobile vs desktop on initial client mount
   useEffect(() => {
     setHasMounted(true);
-    if (window.innerWidth >= 768) {
-      setRole('pc');
-    } else {
-      setRole('phone');
-    }
   }, []);
 
-  const socket = useQuickDropSocket(role);
+  const socket = useQuickDropSocket(role || undefined);
 
   if (!hasMounted) return <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950"></main>;
+
+  // Show role selector if no role chosen yet
+  if (!role) {
+    return (
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <RoleSelector onSelect={setRole} />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex flex-col justify-between">
@@ -31,16 +96,21 @@ export default function HomePage() {
         <Header
           currentRole={role}
           onRoleChange={(newRole) => {
+            socket.disconnect();
             setRole(newRole);
             socket.clearError();
+          }}
+          onGoHome={() => {
+            socket.disconnect();
+            setRole(null);
           }}
           peerConnected={socket.peerConnected}
           connected={socket.connected}
         />
 
         <div className="container mx-auto">
-          {role === 'pc' ? (
-            <PcView
+          {role === 'receive' ? (
+            <ReceiverView
               code={socket.code}
               connected={socket.connected}
               peerConnected={socket.peerConnected}
@@ -55,7 +125,7 @@ export default function HomePage() {
               onSendMessage={socket.sendMessage}
             />
           ) : (
-            <PhoneView
+            <SenderView
               code={socket.code}
               connected={socket.connected}
               peerConnected={socket.peerConnected}
@@ -64,7 +134,7 @@ export default function HomePage() {
               expired={socket.expired}
               latestMessage={socket.latestMessage}
               history={socket.history}
-              onJoinRoom={(c) => socket.joinRoom(c, 'phone')}
+              onJoinRoom={(c) => socket.joinRoom(c, 'send')}
               onSendMessage={socket.sendMessage}
               onClearMessage={socket.clearLatestMessage}
               onDisconnect={socket.disconnect}
@@ -75,7 +145,8 @@ export default function HomePage() {
       </div>
 
       <footer className="w-full py-4 text-center text-xs text-neutral-400 dark:text-neutral-600 border-t border-neutral-100 dark:border-neutral-900">
-        QuickDrop • Ephemeral text transfer
+        QuickDrop • Ephemeral transfer
+        <span className="ml-2 text-neutral-300 dark:text-neutral-700">Developed By Anvin</span>
       </footer>
     </main>
   );

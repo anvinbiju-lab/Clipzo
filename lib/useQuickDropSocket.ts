@@ -62,13 +62,13 @@ export function useQuickDropSocket(initialRole?: Role) {
       case 'created': {
         sessionStorage.setItem(STORAGE_KEYS.ROOM_CODE, msg.code);
         sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, msg.pcToken);
-        sessionStorage.setItem(STORAGE_KEYS.ROLE, 'pc');
+        sessionStorage.setItem(STORAGE_KEYS.ROLE, 'receive');
         setState((prev) => ({
           ...prev,
           connected: true,
           code: msg.code,
           token: msg.pcToken,
-          role: 'pc',
+          role: 'receive',
           peerConnected: msg.peerConnected || false,
           expired: false,
           error: null,
@@ -276,7 +276,7 @@ export function useQuickDropSocket(initialRole?: Role) {
   }, [connect, send]);
 
   const joinRoom = useCallback(
-    (code: string, role: Role = 'phone') => {
+    (code: string, role: Role = 'send') => {
       manualDisconnectRef.current = false;
       setState((prev) => ({ ...prev, error: null, expired: false, role }));
 

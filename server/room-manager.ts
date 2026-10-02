@@ -78,7 +78,7 @@ export class RoomManager {
     const room = this.rooms.get(code);
 
     if (!room) {
-      if (role === 'phone') {
+      if (role === 'send') {
         this.rateLimiter.recordFailedJoin(ip);
       }
       throw new Error('Room not found');
@@ -91,47 +91,47 @@ export class RoomManager {
       throw new Error('Session expired');
     }
 
-    if (role === 'pc') {
-      // Reconnecting PC or new PC socket for existing room
+    if (role === 'receive') {
+      // Reconnecting receiver or new receiver socket for existing room
       if (token && token !== room.pcToken) {
         throw new Error('Unauthorized room access');
       }
       room.pcWs = ws;
       room.lastActiveAt = now;
       return {
-        role: 'pc',
+        role: 'receive',
         token: room.pcToken,
         code: room.code,
         peerConnected: !!(room.phoneWs && room.phoneWs.readyState === 1),
       };
     } else {
-      // Phone joining
+      // Sender joining
       // Check brute-force join rate limit
       const canJoin = this.rateLimiter.canAttemptJoin(ip);
       if (!canJoin.allowed) {
         throw new Error('Too many failed attempts. Please wait a moment.');
       }
 
-      // If phone presents existing valid phoneToken, allow re-attaching socket
+      // If sender presents existing valid phoneToken, allow re-attaching socket
       if (token && room.phoneToken === token) {
         room.phoneWs = ws;
         room.lastActiveAt = now;
         this.rateLimiter.resetFailedJoin(ip);
         return {
-          role: 'phone',
+          role: 'send',
           token: room.phoneToken,
           code: room.code,
           peerConnected: !!(room.pcWs && room.pcWs.readyState === 1),
         };
       }
 
-      // If room already has an active phone connected with a different token
+      // If room already has an active sender connected with a different token
       if (room.phoneWs && room.phoneWs.readyState === 1 && room.phoneToken) {
         this.rateLimiter.recordFailedJoin(ip);
         throw new Error('Room already in use');
       }
 
-      // New phone pairing
+      // New sender pairing
       const phoneToken = generateSessionToken();
       room.phoneToken = phoneToken;
       room.phoneWs = ws;
@@ -140,7 +140,7 @@ export class RoomManager {
       this.rateLimiter.resetFailedJoin(ip);
 
       return {
-        role: 'phone',
+        role: 'send',
         token: phoneToken,
         code: room.code,
         peerConnected: !!(room.pcWs && room.pcWs.readyState === 1),

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       case 'create': {
         const { code, pcToken } = roomManager.createRoom(ip);
         // Automatically join PC to the room to set active
-        const joinResult = roomManager.joinRoom(code, 'pc', pcToken, null as any, ip);
+        const joinResult = roomManager.joinRoom(code, 'receive', pcToken, null as any, ip);
         return NextResponse.json({
           t: 'created',
           code,
@@ -42,8 +42,8 @@ export async function POST(req: Request) {
         const code = (roomManager as any).tokenToCode.get(body.token);
         const room = roomManager.getRoom(code);
         if (room) {
-          const isPhone = room.phoneToken === body.token;
-          if (isPhone) {
+          const isSender = room.phoneToken === body.token;
+          if (isSender) {
             if (!room.pcQueue) room.pcQueue = [];
             room.pcQueue.push({ t: 'msg', id: body.id, d: body.d, ts: Date.now() });
           } else {
@@ -65,13 +65,13 @@ export async function POST(req: Request) {
         // Update activity
         room.lastActiveAt = Date.now();
 
-        const peerConnected = body.role === 'pc' ? !!room.phoneToken : true;
+        const peerConnected = body.role === 'receive' ? !!room.phoneToken : true;
         let messages: any[] = [];
         
-        if (body.role === 'pc') {
+        if (body.role === 'receive') {
           messages = room.pcQueue || [];
           room.pcQueue = []; // Clear queue after reading
-        } else if (body.role === 'phone') {
+        } else if (body.role === 'send') {
           messages = room.phoneQueue || [];
           room.phoneQueue = []; // Clear queue after reading
         }

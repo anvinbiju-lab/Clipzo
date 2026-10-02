@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'QuickDrop - Phone to PC. No login.',
-  description: 'Ultra-fast temporary text and code transfer from mobile to PC.',
+  title: 'QuickDrop - Send & receive. Any device. No login.',
+  description: 'Ultra-fast temporary text and file transfer between any devices. No login required.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
