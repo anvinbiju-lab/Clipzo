@@ -41,7 +41,17 @@ export function SenderView({
   onClearError,
   onClearMessage,
 }: SenderViewProps) {
-  const [inputCode, setInputCode] = useState(initialCode);
+  // Clean and filter code input
+  const sanitizeCode = (val: string) => {
+    return val
+      .toUpperCase()
+      .split('')
+      .filter((ch) => VALID_CODE_CHARS.includes(ch))
+      .join('')
+      .slice(0, 4);
+  };
+
+  const [inputCode, setInputCode] = useState(() => (initialCode ? sanitizeCode(initialCode) : ''));
   const [textPayload, setTextPayload] = useState('');
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -56,16 +66,6 @@ export function SenderView({
     }
   }, [code]);
 
-  // Clean and filter code input
-  const sanitizeCode = (val: string) => {
-    return val
-      .toUpperCase()
-      .split('')
-      .filter((ch) => VALID_CODE_CHARS.includes(ch))
-      .join('')
-      .slice(0, 2);
-  };
-
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onClearError();
     const sanitized = sanitizeCode(e.target.value);
@@ -74,7 +74,7 @@ export function SenderView({
 
   const handleConnectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputCode.length === 2) {
+    if (inputCode.length >= 2) {
       onJoinRoom(inputCode);
     }
   };
@@ -164,16 +164,16 @@ export function SenderView({
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
-                maxLength={2}
+                maxLength={4}
                 className="w-56 text-center font-mono text-4xl sm:text-5xl font-black tracking-widest px-4 py-3 bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-300 dark:border-neutral-700 rounded-2xl focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-hidden transition-all text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
               />
             </div>
 
             <button
               type="submit"
-              disabled={inputCode.length !== 2}
+              disabled={inputCode.length < 2}
               className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-sm transition-colors ${
-                inputCode.length === 2
+                inputCode.length >= 2
                   ? 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900'
                   : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
               }`}
@@ -304,11 +304,14 @@ export function SenderView({
             <button
               type="button"
               onClick={async () => {
-                await copyToClipboard(latestMessage.text);
+                const toCopy = latestMessage.text.startsWith('FILE::')
+                  ? latestMessage.text.split('::')[1]
+                  : latestMessage.text;
+                await copyToClipboard(toCopy);
               }}
               className="flex-1 py-3 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 font-bold text-sm transition-colors"
             >
-              COPY
+              {latestMessage.text.startsWith('FILE::') ? 'COPY LINK' : 'COPY'}
             </button>
             {onClearMessage && (
               <button
@@ -323,11 +326,11 @@ export function SenderView({
         </div>
       )}
 
-      {/* Sent History */}
+      {/* Activity History */}
       {history.length > 0 && (
         <div className="w-full mt-6">
           <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
-            Recently Sent ({history.length})
+            Recent Activity ({history.length})
           </h3>
           <div className="space-y-2">
             {history.map((item) => (

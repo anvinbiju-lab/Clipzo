@@ -67,7 +67,8 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
               // Notify peer if present
               const room = roomManager.getRoom(result.code);
               if (room) {
-                const peerWs = result.role === 'send' ? room.pcWs : room.phoneWs;
+                const isSender = result.role === 'send' || (result.role as string) === 'phone';
+                const peerWs = isSender ? room.pcWs : room.phoneWs;
                 if (peerWs && peerWs.readyState === 1) {
                   sendJson(peerWs, { t: 'peer_joined' });
                 }

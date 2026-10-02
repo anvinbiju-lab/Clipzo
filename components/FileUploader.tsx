@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { upload } from '@vercel/blob/client';
 
-export function FileUploader({ onSendFile }: { onSendFile: (url: string, name: string, type: string) => Promise<boolean> }) {
+export function FileUploader({ onSendFile }: { onSendFile: (payload: string, name?: string, type?: string) => Promise<boolean> }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -21,12 +21,16 @@ export function FileUploader({ onSendFile }: { onSendFile: (url: string, name: s
       const payload = `FILE::${newBlob.url}::${file.name}::${file.type}`;
       const success = await onSendFile(payload, file.name, file.type);
       
+      if (!success) {
+        alert('File uploaded to storage, but could not be sent to the peer. Make sure the other device is connected.');
+      }
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload failed', err);
-      alert('Failed to upload file');
+      alert(`Failed to upload file: ${err?.message || 'Check storage token'}`);
     } finally {
       setUploading(false);
     }

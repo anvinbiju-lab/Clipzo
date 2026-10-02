@@ -264,13 +264,13 @@ export function ReceiverView({
       )}
 
       {/* Received Text Card */}
-      {latestMessage && (
+      {latestMessage ? (
         <div className="w-full mt-6 bg-white dark:bg-neutral-900 border-2 border-neutral-900 dark:border-neutral-100 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
-                New Received Text
+                New Received Item
               </h2>
             </div>
             <span className="text-xs text-neutral-400 font-mono">
@@ -286,10 +286,15 @@ export function ReceiverView({
           <div className="mt-4 flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              onClick={() => handleCopy(latestMessage.text, true)}
+              onClick={() => {
+                const toCopy = latestMessage.text.startsWith('FILE::')
+                  ? latestMessage.text.split('::')[1]
+                  : latestMessage.text;
+                handleCopy(toCopy, true);
+              }}
               className="flex-1 py-3.5 px-6 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 font-bold text-base shadow-sm transition-colors flex items-center justify-center space-x-2"
             >
-              <span>{copyStatus || 'COPY'}</span>
+              <span>{copyStatus || (latestMessage.text.startsWith('FILE::') ? 'COPY LINK' : 'COPY')}</span>
             </button>
 
             <button
@@ -301,7 +306,17 @@ export function ReceiverView({
             </button>
           </div>
         </div>
-      )}
+      ) : code ? (
+        <div className="w-full mt-6 bg-white dark:bg-neutral-900 border border-dashed border-neutral-300 dark:border-neutral-800 rounded-2xl p-8 text-center">
+          <div className="text-3xl mb-2">📥</div>
+          <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+            Waiting for incoming text or files…
+          </p>
+          <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
+            Once the sender connects with code <strong className="font-mono text-neutral-700 dark:text-neutral-200">{code}</strong> and sends something, it will appear here automatically.
+          </p>
+        </div>
+      ) : null}
 
       {/* History (Recent 5) */}
       {history.length > 1 && (
@@ -321,7 +336,10 @@ export function ReceiverView({
                 <button
                   type="button"
                   onClick={async () => {
-                    const ok = await copyToClipboard(item.text);
+                    const toCopy = item.text.startsWith('FILE::')
+                      ? item.text.split('::')[1]
+                      : item.text;
+                    const ok = await copyToClipboard(toCopy);
                     if (ok) {
                       setCopiedHistoryId(item.id);
                       setTimeout(() => setCopiedHistoryId(null), 2000);
@@ -329,7 +347,7 @@ export function ReceiverView({
                   }}
                   className="px-3 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-medium shrink-0 transition-colors"
                 >
-                  {copiedHistoryId === item.id ? 'Copied ✓' : 'Copy'}
+                  {copiedHistoryId === item.id ? 'Copied ✓' : (item.text.startsWith('FILE::') ? 'Copy Link' : 'Copy')}
                 </button>
               </div>
             ))}

@@ -262,7 +262,7 @@ export function useQuickDropSocket(initialRole?: Role) {
 
   const createRoom = useCallback(() => {
     manualDisconnectRef.current = false;
-    setState((prev) => ({ ...prev, error: null, expired: false }));
+    setState((prev) => ({ ...prev, error: null, expired: false, role: 'receive' }));
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       send({ t: 'create' });
@@ -307,8 +307,7 @@ export function useQuickDropSocket(initialRole?: Role) {
             const item: SnippetItem = { id, text, timestamp: Date.now() };
             setState((prev) => ({
               ...prev,
-              latestMessage: item,
-              history: [item, ...prev.history].slice(0, MAX_HISTORY_ITEMS),
+              history: [item, ...prev.history.filter((m) => m.id !== id)].slice(0, MAX_HISTORY_ITEMS),
             }));
           }
           resolve(success);

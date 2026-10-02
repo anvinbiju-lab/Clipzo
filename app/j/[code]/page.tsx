@@ -11,14 +11,16 @@ export default function JoinPage() {
   const rawCode = typeof params.code === 'string' ? params.code : '';
   const socket = useQuickDropSocket('send');
 
+  const normalizedCode = rawCode.trim().toUpperCase();
+
   // Automatically attempt joining upon mounting with the URL code
   const hasRequestedJoin = useRef(false);
   useEffect(() => {
-    if (rawCode && rawCode.length === 2 && !socket.code && !hasRequestedJoin.current) {
+    if (normalizedCode && normalizedCode.length >= 2 && !socket.code && !hasRequestedJoin.current) {
       hasRequestedJoin.current = true;
-      socket.joinRoom(rawCode, 'send');
+      socket.joinRoom(normalizedCode, 'send');
     }
-  }, [rawCode, socket.code, socket.joinRoom]);
+  }, [normalizedCode, socket.code, socket.joinRoom]);
 
   return (
     <main className="min-h-screen flex flex-col justify-between">

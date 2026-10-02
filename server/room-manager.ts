@@ -75,23 +75,31 @@ export class RoomManager {
     ws: WebSocket,
     ip: string
   ): { role: Role; token: string; code: string; peerConnected: boolean } {
-    const room = this.rooms.get(code);
+    const normalizedCode = code?.trim().toUpperCase();
+    const room = this.rooms.get(normalizedCode);
+
+    const isReceiver = role === 'receive' || (role as string) === 'pc';
+    const isSender = role === 'send' || (role as string) === 'phone';
 
     if (!room) {
-      if (role === 'send') {
+      if (isSender) {
         this.rateLimiter.recordFailedJoin(ip);
       }
       throw new Error('Room not found');
     }
 
+    if (!isReceiver && !isSender) {
+      throw new Error('Invalid role');
+    }
+
     const now = Date.now();
     // Check if room expired
     if (now - room.lastActiveAt > INACTIVITY_TIMEOUT_MS || now - room.createdAt > MAX_ROOM_LIFETIME_MS) {
-      this.destroyRoom(code);
+      this.destroyRoom(normalizedCode);
       throw new Error('Session expired');
     }
 
-    if (role === 'receive') {
+    if (isReceiver) {
       // Reconnecting receiver or new receiver socket for existing room
       if (token && token !== room.pcToken) {
         throw new Error('Unauthorized room access');
@@ -99,7 +107,7 @@ export class RoomManager {
       room.pcWs = ws;
       room.lastActiveAt = now;
       return {
-        role: 'receive',
+        role,
         token: room.pcToken,
         code: room.code,
         peerConnected: !!(room.phoneWs && room.phoneWs.readyState === 1),
@@ -118,7 +126,7 @@ export class RoomManager {
         room.lastActiveAt = now;
         this.rateLimiter.resetFailedJoin(ip);
         return {
-          role: 'send',
+          role,
           token: room.phoneToken,
           code: room.code,
           peerConnected: !!(room.pcWs && room.pcWs.readyState === 1),
@@ -136,11 +144,11 @@ export class RoomManager {
       room.phoneToken = phoneToken;
       room.phoneWs = ws;
       room.lastActiveAt = now;
-      this.tokenToCode.set(phoneToken, code);
+      this.tokenToCode.set(phoneToken, normalizedCode);
       this.rateLimiter.resetFailedJoin(ip);
 
       return {
-        role: 'send',
+        role,
         token: phoneToken,
         code: room.code,
         peerConnected: !!(room.pcWs && room.pcWs.readyState === 1),
@@ -235,7 +243,8 @@ export class RoomManager {
    * Close sockets and purge room
    */
   public destroyRoom(code: string): void {
-    const room = this.rooms.get(code);
+    const normalizedCode = code?.trim().toUpperCase();
+    const room = this.rooms.get(normalizedCode);
     if (!room) return;
 
     const expiredMsg = JSON.stringify({ t: 'expired' } as ServerMessage);
@@ -262,7 +271,7 @@ export class RoomManager {
     if (room.phoneToken) {
       this.tokenToCode.delete(room.phoneToken);
     }
-    this.rooms.delete(code);
+    this.rooms.delete(normalizedCode);
   }
 
   /**
@@ -281,7 +290,7 @@ export class RoomManager {
   }
 
   public getRoom(code: string): Room | undefined {
-    return this.rooms.get(code);
+    return this.rooms.get(code?.trim().toUpperCase());
   }
 }
 

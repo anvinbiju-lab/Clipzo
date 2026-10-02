@@ -3,7 +3,7 @@
  * Compact, typed, minimal JSON protocol
  */
 
-export type Role = 'send' | 'receive';
+export type Role = 'send' | 'receive' | 'phone' | 'pc';
 
 // Client -> Server messages
 export type ClientMessage =

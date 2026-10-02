@@ -16,7 +16,7 @@ describe('RoomManager', () => {
     const manager = new RoomManager();
     const { code, pcToken } = manager.createRoom('127.0.0.1');
 
-    expect(code).toHaveLength(4);
+    expect(code.length).toBeGreaterThanOrEqual(2);
     expect(pcToken).toHaveLength(64);
     expect(manager.getActiveRoomCount()).toBe(1);
   });

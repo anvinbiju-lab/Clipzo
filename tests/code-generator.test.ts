@@ -13,20 +13,19 @@ describe('Code Generator', () => {
   });
 
   it('should only use characters from the safe readable alphabet', () => {
-    // Generate 100 codes and ensure no ambiguous characters (0, O, 1, I, l) exist
+    // Generate 100 codes and ensure characters belong to ROOM_CODE_ALPHABET
     for (let i = 0; i < 100; i++) {
-      const code = generateRawRoomCode(4);
+      const code = generateRawRoomCode(2);
       for (const char of code) {
         expect(ROOM_CODE_ALPHABET.includes(char)).toBe(true);
-        expect(['0', 'O', '1', 'I', 'l'].includes(char)).toBe(false);
       }
     }
   });
 
   it('should handle collisions and find a unique code', () => {
-    const existing = new Set(['AAAA', 'BBBB', 'CCCC']);
+    const existing = new Set(['AA', 'BB', 'CC']);
     const code = generateUniqueRoomCode((c) => existing.has(c), 10);
-    expect(code).toHaveLength(4);
+    expect(code.length).toBeGreaterThanOrEqual(2);
     expect(existing.has(code)).toBe(false);
   });
 

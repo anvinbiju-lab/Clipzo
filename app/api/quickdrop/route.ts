@@ -65,13 +65,14 @@ export async function POST(req: Request) {
         // Update activity
         room.lastActiveAt = Date.now();
 
-        const peerConnected = body.role === 'receive' ? !!room.phoneToken : true;
+        const isReceiver = body.role === 'receive' || (body.role as string) === 'pc';
+        const peerConnected = isReceiver ? !!room.phoneToken : !!room.pcToken;
         let messages: any[] = [];
         
-        if (body.role === 'receive') {
+        if (isReceiver) {
           messages = room.pcQueue || [];
           room.pcQueue = []; // Clear queue after reading
-        } else if (body.role === 'send') {
+        } else {
           messages = room.phoneQueue || [];
           room.phoneQueue = []; // Clear queue after reading
         }
