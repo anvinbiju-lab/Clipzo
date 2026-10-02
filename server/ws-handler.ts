@@ -32,7 +32,7 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
             try {
               const { code, pcToken } = roomManager.createRoom(ip);
               assignedToken = pcToken;
-              const joinResult = roomManager.joinRoom(code, 'pc', pcToken, ws, ip);
+              const joinResult = roomManager.joinRoom(code, 'receive', pcToken, ws, ip);
               sendJson(ws, {
                 t: 'created',
                 code,
@@ -40,7 +40,7 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
               });
               sendJson(ws, {
                 t: 'joined',
-                role: 'pc',
+                role: 'receive',
                 token: pcToken,
                 code,
                 peerConnected: joinResult.peerConnected,
@@ -67,7 +67,7 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
               // Notify peer if present
               const room = roomManager.getRoom(result.code);
               if (room) {
-                const peerWs = result.role === 'phone' ? room.pcWs : room.phoneWs;
+                const peerWs = result.role === 'send' ? room.pcWs : room.phoneWs;
                 if (peerWs && peerWs.readyState === 1) {
                   sendJson(peerWs, { t: 'peer_joined' });
                 }
