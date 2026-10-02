@@ -60,15 +60,17 @@ export function useQuickDropSocket(initialRole?: Role) {
   const handleMessage = useCallback((msg: any) => {
     switch (msg.t) {
       case 'created': {
+        const role = msg.role || 'send';
+        const token = msg.token || msg.pcToken;
         sessionStorage.setItem(STORAGE_KEYS.ROOM_CODE, msg.code);
-        sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, msg.pcToken);
-        sessionStorage.setItem(STORAGE_KEYS.ROLE, 'receive');
+        sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, token);
+        sessionStorage.setItem(STORAGE_KEYS.ROLE, role);
         setState((prev) => ({
           ...prev,
           connected: true,
           code: msg.code,
-          token: msg.pcToken,
-          role: 'receive',
+          token,
+          role,
           peerConnected: msg.peerConnected || false,
           expired: false,
           error: null,
@@ -260,23 +262,23 @@ export function useQuickDropSocket(initialRole?: Role) {
     }
   }, [handleMessage, send]);
 
-  const createRoom = useCallback(() => {
+  const createRoom = useCallback((role: Role = 'send') => {
     manualDisconnectRef.current = false;
-    setState((prev) => ({ ...prev, error: null, expired: false, role: 'receive' }));
+    setState((prev) => ({ ...prev, error: null, expired: false, role }));
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      send({ t: 'create' });
+      send({ t: 'create', role });
     } else if (isHttpMode.current) {
-      send({ t: 'create' });
+      send({ t: 'create', role });
     } else {
       connect(() => {
-        send({ t: 'create' });
+        send({ t: 'create', role });
       });
     }
   }, [connect, send]);
 
   const joinRoom = useCallback(
-    (code: string, role: Role = 'send') => {
+    (code: string, role: Role = 'receive') => {
       manualDisconnectRef.current = false;
       setState((prev) => ({ ...prev, error: null, expired: false, role }));
 

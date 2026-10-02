@@ -7,7 +7,7 @@ export type Role = 'send' | 'receive' | 'phone' | 'pc';
 
 // Client -> Server messages
 export type ClientMessage =
-  | { t: 'create' }
+  | { t: 'create'; role?: Role }
   | { t: 'join'; code: string; role: Role; token?: string }
   | { t: 'msg'; id: string; d: string; token: string }
   | { t: 'leave'; token: string }
@@ -15,7 +15,7 @@ export type ClientMessage =
 
 // Server -> Client messages
 export type ServerMessage =
-  | { t: 'created'; code: string; pcToken: string }
+  | { t: 'created'; code: string; pcToken?: string; token?: string; role?: Role }
   | { t: 'joined'; role: Role; token: string; code: string; peerConnected: boolean }
   | { t: 'peer_joined' }
   | { t: 'peer_left' }

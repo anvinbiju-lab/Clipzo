@@ -170,4 +170,75 @@ describe('WebSocket End-to-End Protocol', () => {
     pcClient.close();
     phoneClient.close();
   });
+
+  it('should support Sender create -> Receiver join with code -> Sender sends multi-file -> Receiver receives', async () => {
+    const sender = await createTestClient();
+
+    // 1. Sender creates room
+    sender.ws.send(JSON.stringify({ t: 'create', role: 'send' } as ClientMessage));
+    const createdMsg = (await sender.nextMessage()) as Extract<
+      ServerMessage,
+      { t: 'created' }
+    >;
+    expect(createdMsg.t).toBe('created');
+    expect(createdMsg.code).toBeDefined();
+
+    const senderJoined = (await sender.nextMessage()) as Extract<
+      ServerMessage,
+      { t: 'joined' }
+    >;
+    expect(senderJoined.t).toBe('joined');
+    expect(senderJoined.role).toBe('send');
+    expect(senderJoined.token).toBeDefined();
+
+    // 2. Receiver connects and joins with the sender's code
+    const receiver = await createTestClient();
+    receiver.ws.send(
+      JSON.stringify({
+        t: 'join',
+        code: createdMsg.code,
+        role: 'receive',
+      } as ClientMessage)
+    );
+
+    const receiverJoined = (await receiver.nextMessage()) as Extract<
+      ServerMessage,
+      { t: 'joined' }
+    >;
+    expect(receiverJoined.t).toBe('joined');
+    expect(receiverJoined.role).toBe('receive');
+    expect(receiverJoined.token).toBeDefined();
+
+    // Sender gets peer_joined notification
+    const senderPeerJoined = await sender.nextMessage();
+    expect(senderPeerJoined.t).toBe('peer_joined');
+
+    // 3. Sender sends multi-file batch payload
+    const batchPayload = 'FILES::' + JSON.stringify([
+      { url: 'https://blob.vercel-storage.com/file1.png', name: 'file1.png', type: 'image/png', size: 1024 },
+      { url: 'https://blob.vercel-storage.com/file2.pdf', name: 'file2.pdf', type: 'application/pdf', size: 2048 },
+    ]);
+
+    sender.ws.send(
+      JSON.stringify({
+        t: 'msg',
+        id: 'batch-test-1',
+        d: batchPayload,
+        token: senderJoined.token,
+      } as ClientMessage)
+    );
+
+    // Sender gets ACK
+    const ackMsg = (await sender.nextMessage()) as Extract<ServerMessage, { t: 'ack' }>;
+    expect(ackMsg.t).toBe('ack');
+    expect(ackMsg.id).toBe('batch-test-1');
+
+    // Receiver gets exact batch payload
+    const receivedMsg = (await receiver.nextMessage()) as Extract<ServerMessage, { t: 'msg' }>;
+    expect(receivedMsg.t).toBe('msg');
+    expect(receivedMsg.d).toBe(batchPayload);
+
+    sender.close();
+    receiver.close();
+  });
 });

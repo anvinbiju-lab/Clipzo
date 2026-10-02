@@ -37,21 +37,22 @@ export class RoomManager {
   }
 
   /**
-   * Create a new temporary room for PC
+   * Create a new temporary room for Sender or Receiver
    */
-  public createRoom(ip: string): { code: string; pcToken: string } {
+  public createRoom(ip: string, creatorRole: Role = 'send'): { code: string; token: string; role: Role; pcToken: string } {
     if (!this.rateLimiter.canCreateRoom(ip)) {
       throw new Error('Rate limit reached. Please wait before creating more rooms.');
     }
 
     const code = generateUniqueRoomCode((c) => this.rooms.has(c), this.rooms.size);
-    const pcToken = generateSessionToken();
+    const token = generateSessionToken();
     const now = Date.now();
+    const isSender = creatorRole === 'send' || (creatorRole as string) === 'phone';
 
     const room: Room = {
       code,
-      pcToken,
-      phoneToken: null,
+      pcToken: isSender ? '' : token,
+      phoneToken: isSender ? token : null,
       pcWs: null,
       phoneWs: null,
       createdAt: now,
@@ -60,9 +61,9 @@ export class RoomManager {
     };
 
     this.rooms.set(code, room);
-    this.tokenToCode.set(pcToken, code);
+    this.tokenToCode.set(token, code);
 
-    return { code, pcToken };
+    return { code, token, role: isSender ? 'send' : 'receive', pcToken: token };
   }
 
   /**
@@ -100,10 +101,42 @@ export class RoomManager {
     }
 
     if (isReceiver) {
-      // Reconnecting receiver or new receiver socket for existing room
+      // If room was created by Sender, generate receiver token upon joining
+      if (!room.pcToken) {
+        const canJoin = this.rateLimiter.canAttemptJoin(ip);
+        if (!canJoin.allowed) {
+          throw new Error('Too many failed attempts. Please wait a moment.');
+        }
+        const receiverToken = generateSessionToken();
+        room.pcToken = receiverToken;
+        room.pcWs = ws;
+        room.lastActiveAt = now;
+        this.tokenToCode.set(receiverToken, normalizedCode);
+        this.rateLimiter.resetFailedJoin(ip);
+        return {
+          role,
+          token: receiverToken,
+          code: room.code,
+          peerConnected: !!(room.phoneWs && room.phoneWs.readyState === 1),
+        };
+      }
+
+      // Reconnecting receiver with existing token
+      if (token && token === room.pcToken) {
+        room.pcWs = ws;
+        room.lastActiveAt = now;
+        return {
+          role,
+          token: room.pcToken,
+          code: room.code,
+          peerConnected: !!(room.phoneWs && room.phoneWs.readyState === 1),
+        };
+      }
+
       if (token && token !== room.pcToken) {
         throw new Error('Unauthorized room access');
       }
+
       room.pcWs = ws;
       room.lastActiveAt = now;
       return {

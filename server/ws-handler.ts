@@ -1,7 +1,7 @@
 import type { IncomingMessage } from 'node:http';
 import type { WebSocket, WebSocketServer } from 'ws';
 import { roomManager } from './room-manager';
-import type { ClientMessage, ServerMessage } from '../types/protocol';
+import type { ClientMessage, ServerMessage, Role } from '../types/protocol';
 
 function sendJson(ws: WebSocket, msg: ServerMessage): void {
   if (ws.readyState === 1 /* OPEN */) {
@@ -30,18 +30,21 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
         switch (msg.t) {
           case 'create': {
             try {
-              const { code, pcToken } = roomManager.createRoom(ip);
-              assignedToken = pcToken;
-              const joinResult = roomManager.joinRoom(code, 'receive', pcToken, ws, ip);
+              const role: Role = (msg as any).role || 'pc';
+              const { code, token, pcToken } = roomManager.createRoom(ip, role);
+              assignedToken = token;
+              const joinResult = roomManager.joinRoom(code, role, token, ws, ip);
               sendJson(ws, {
                 t: 'created',
                 code,
                 pcToken,
-              });
+                token,
+                role,
+              } as any);
               sendJson(ws, {
                 t: 'joined',
-                role: 'receive',
-                token: pcToken,
+                role,
+                token,
                 code,
                 peerConnected: joinResult.peerConnected,
               });

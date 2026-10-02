@@ -12,12 +12,14 @@ export async function POST(req: Request) {
 
     switch (body.t) {
       case 'create': {
-        const { code, pcToken } = roomManager.createRoom(ip);
-        // Automatically join PC to the room to set active
-        const joinResult = roomManager.joinRoom(code, 'receive', pcToken, null as any, ip);
+        const role: Role = (body as any).role || 'send';
+        const { code, token, pcToken } = roomManager.createRoom(ip, role);
+        const joinResult = roomManager.joinRoom(code, role, token, null as any, ip);
         return NextResponse.json({
           t: 'created',
           code,
+          token,
+          role,
           pcToken,
           peerConnected: joinResult.peerConnected,
         });

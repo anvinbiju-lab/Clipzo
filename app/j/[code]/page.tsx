@@ -3,22 +3,22 @@
 import React, { useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Header } from '../../../components/Header';
-import { SenderView } from '../../../components/SenderView';
+import { ReceiverView } from '../../../components/ReceiverView';
 import { useQuickDropSocket } from '../../../lib/useQuickDropSocket';
 
 export default function JoinPage() {
   const params = useParams();
   const rawCode = typeof params.code === 'string' ? params.code : '';
-  const socket = useQuickDropSocket('send');
+  const socket = useQuickDropSocket('receive');
 
   const normalizedCode = rawCode.trim().toUpperCase();
 
-  // Automatically attempt joining upon mounting with the URL code
+  // Automatically attempt joining upon mounting with the URL code as the receiver
   const hasRequestedJoin = useRef(false);
   useEffect(() => {
     if (normalizedCode && normalizedCode.length >= 2 && !socket.code && !hasRequestedJoin.current) {
       hasRequestedJoin.current = true;
-      socket.joinRoom(normalizedCode, 'send');
+      socket.joinRoom(normalizedCode, 'receive');
     }
   }, [normalizedCode, socket.code, socket.joinRoom]);
 
@@ -26,7 +26,7 @@ export default function JoinPage() {
     <main className="min-h-screen flex flex-col justify-between">
       <div>
         <Header
-          currentRole="send"
+          currentRole="receive"
           onRoleChange={() => {}}
           onGoHome={() => {
             window.location.href = '/';
@@ -36,20 +36,19 @@ export default function JoinPage() {
         />
 
         <div className="container mx-auto">
-          <SenderView
+          <ReceiverView
             code={socket.code}
             connected={socket.connected}
             peerConnected={socket.peerConnected}
             reconnecting={socket.reconnecting}
             error={socket.error}
             expired={socket.expired}
-            history={socket.history}
             latestMessage={socket.latestMessage}
+            history={socket.history}
             initialCode={rawCode}
-            onJoinRoom={(c) => socket.joinRoom(c, 'send')}
-            onSendMessage={socket.sendMessage}
-            onClearMessage={socket.clearLatestMessage}
+            onJoinRoom={(c) => socket.joinRoom(c, 'receive')}
             onDisconnect={socket.disconnect}
+            onClearMessage={socket.clearLatestMessage}
             onClearError={socket.clearError}
           />
         </div>

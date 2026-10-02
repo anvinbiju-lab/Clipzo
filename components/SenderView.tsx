@@ -2,10 +2,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { copyToClipboard } from '../lib/clipboard';
-import { PRIVACY_STATEMENT, VALID_CODE_CHARS } from '../lib/constants';
-import type { SnippetItem } from '../types/protocol';
+import { PRIVACY_STATEMENT } from '../lib/constants';
+import type { SnippetItem, Role } from '../types/protocol';
 import { FileUploader } from './FileUploader';
-import { MessageRenderer } from './MessageRenderer';
+import { QrCodeModal } from './QrCodeModal';
 import { formatSnippetText } from '../lib/utils';
 
 interface SenderViewProps {
@@ -16,13 +16,10 @@ interface SenderViewProps {
   error: string | null;
   expired: boolean;
   history: SnippetItem[];
-  latestMessage?: SnippetItem | null;
-  initialCode?: string;
-  onJoinRoom: (code: string) => void;
+  onCreateRoom: (role?: Role) => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onDisconnect: () => void;
   onClearError: () => void;
-  onClearMessage?: () => void;
 }
 
 export function SenderView({
@@ -33,62 +30,51 @@ export function SenderView({
   error,
   expired,
   history,
-  latestMessage,
-  initialCode = '',
-  onJoinRoom,
+  onCreateRoom,
   onSendMessage,
   onDisconnect,
   onClearError,
-  onClearMessage,
 }: SenderViewProps) {
-  // Clean and filter code input
-  const sanitizeCode = (val: string) => {
-    return val
-      .toUpperCase()
-      .split('')
-      .filter((ch) => VALID_CODE_CHARS.includes(ch))
-      .join('')
-      .slice(0, 4);
-  };
-
-  const [inputCode, setInputCode] = useState(() => (initialCode ? sanitizeCode(initialCode) : ''));
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
   const [textPayload, setTextPayload] = useState('');
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const codeInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Auto-focus code input if not connected, or textarea if connected
+  // Auto-create room for sender if not initialized
+  const hasRequestedRoom = useRef(false);
   useEffect(() => {
-    if (!code) {
-      codeInputRef.current?.focus();
-    } else {
+    if (!code && !expired && !hasRequestedRoom.current) {
+      hasRequestedRoom.current = true;
+      onCreateRoom('send');
+    }
+  }, [code, expired, onCreateRoom]);
+
+  // Focus textarea when room code is ready
+  useEffect(() => {
+    if (code) {
       textareaRef.current?.focus();
     }
   }, [code]);
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onClearError();
-    const sanitized = sanitizeCode(e.target.value);
-    setInputCode(sanitized);
-  };
-
-  const handleConnectSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputCode.length >= 2) {
-      onJoinRoom(inputCode);
+  const handleCopyCode = async () => {
+    if (!code) return;
+    const ok = await copyToClipboard(code);
+    if (ok) {
+      setCopyStatus('Code Copied ✓');
+      setTimeout(() => setCopyStatus(null), 2000);
     }
   };
 
   const handleSend = async () => {
-    if (!textPayload || sendState === 'sending') return;
+    if (!textPayload.trim() || sendState === 'sending') return;
 
     setSendState('sending');
-    const success = await onSendMessage(textPayload);
+    const success = await onSendMessage(textPayload.trim());
 
     if (success) {
       setSendState('sent');
       setTextPayload('');
-      // Immediately re-focus textarea for next snippet
       setTimeout(() => {
         textareaRef.current?.focus();
       }, 50);
@@ -104,128 +90,112 @@ export function SenderView({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Cmd+Enter or Ctrl+Enter to send quickly
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    // Enter key without shift sends the message directly
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
+  const joinUrl = typeof window !== 'undefined' && code ? `${window.location.origin}/j/${code}` : '';
+
   if (expired) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 text-center max-w-sm mx-auto my-10 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+      <div className="flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto my-12 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
         <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center text-xl mb-4">
           ⏱️
         </div>
-        <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">Session Expired</h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 mb-6">
-          The temporary room closed due to inactivity.
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-50">Session Expired</h2>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2 mb-6">
+          This temporary session has expired and all session data was deleted.
         </p>
         <button
           type="button"
           onClick={() => {
-            setInputCode('');
-            onDisconnect();
+            hasRequestedRoom.current = false;
+            onCreateRoom('send');
           }}
-          className="w-full py-3 px-4 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 font-semibold rounded-xl text-sm transition-colors"
+          className="w-full py-3 px-6 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 font-semibold rounded-xl shadow-sm transition-colors text-sm"
         >
-          Enter New Code
+          Start New Send Session
         </button>
       </div>
     );
   }
 
-  // Not yet connected to a room
-  if (!code) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-8 flex flex-col items-center">
-        {error && (
-          <div className="w-full mb-6 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 text-xs sm:text-sm text-center font-medium">
-            {error}
-          </div>
-        )}
-
-        <div className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 sm:p-8 text-center shadow-xs">
-          <h2 className="text-sm uppercase font-bold tracking-widest text-neutral-500 dark:text-neutral-400 mb-2">
-            Enter Room Code
-          </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">
-            Enter the 2-character code shown on the receiver&apos;s screen.
-          </p>
-
-          <form onSubmit={handleConnectSubmit} className="space-y-5">
-            <div className="flex justify-center">
-              <input
-                ref={codeInputRef}
-                type="text"
-                value={inputCode}
-                onChange={handleCodeChange}
-                placeholder="AB"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck={false}
-                maxLength={4}
-                className="w-56 text-center font-mono text-4xl sm:text-5xl font-black tracking-widest px-4 py-3 bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-300 dark:border-neutral-700 rounded-2xl focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-hidden transition-all text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={inputCode.length < 2}
-              className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-sm transition-colors ${
-                inputCode.length >= 2
-                  ? 'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900'
-                  : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
-              }`}
-            >
-              CONNECT
-            </button>
-          </form>
-        </div>
-
-        <p className="mt-8 text-xs text-neutral-400 dark:text-neutral-500 text-center">
-          {PRIVACY_STATEMENT}
-        </p>
-      </div>
-    );
-  }
-
-  // Connected to room
   return (
-    <div className="max-w-md mx-auto px-4 py-6 flex flex-col items-center">
+    <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col items-center">
       {error && (
-        <div className="w-full mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 text-xs text-center font-medium">
+        <div className="w-full mb-6 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 text-sm text-center font-medium">
           {error}
         </div>
       )}
 
-      {/* Connection Header Bar */}
-      <div className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 px-4 flex items-center justify-between mb-4 shadow-xs">
-        <div className="flex items-center space-x-2">
-          {reconnecting ? (
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-          ) : (
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          )}
-          <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
-            {reconnecting ? 'Reconnecting…' : 'Connected to Receiver'}
-          </span>
-          <span className="font-mono font-bold text-xs bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-800 dark:text-neutral-200">
-            {code}
+      {/* Code Sharing Card */}
+      <div className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 sm:p-8 flex flex-col items-center shadow-xs text-center">
+        <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+          Your Pairing Code
+        </span>
+
+        <div className="relative group cursor-pointer" onClick={handleCopyCode} title="Click to copy code">
+          <div className="font-mono text-5xl sm:text-6xl font-black tracking-widest text-neutral-900 dark:text-neutral-50 my-2 select-all transition-transform group-hover:scale-105">
+            {code || '··'}
+          </div>
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+            {copyStatus || 'Click to copy code'}
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onDisconnect}
-          className="text-xs text-neutral-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-        >
-          Disconnect
-        </button>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-3 max-w-sm">
+          Type this code on the receiving device at{' '}
+          <span className="font-mono font-bold text-neutral-700 dark:text-neutral-300">
+            {typeof window !== 'undefined' ? window.location.host : 'koply.vercel.app'}
+          </span>
+        </p>
+
+        {/* Peer Status Badge */}
+        <div className="mt-5 flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              reconnecting
+                ? 'bg-amber-500 animate-pulse'
+                : peerConnected
+                ? 'bg-emerald-500'
+                : 'bg-neutral-400'
+            }`}
+          />
+          <span>
+            {reconnecting
+              ? 'Reconnecting…'
+              : peerConnected
+              ? 'Receiver Connected'
+              : 'Waiting for receiver to enter code…'}
+          </span>
+        </div>
+
+        {/* Secondary Actions */}
+        <div className="mt-5 pt-4 border-t border-neutral-100 dark:border-neutral-800 w-full flex items-center justify-center space-x-6 text-xs text-neutral-500">
+          <button
+            type="button"
+            onClick={() => setShowQr(true)}
+            className="hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors flex items-center space-x-1.5 cursor-pointer font-medium"
+          >
+            <span>📱</span>
+            <span>Show QR code</span>
+          </button>
+          <span className="text-neutral-300 dark:text-neutral-700">•</span>
+          <button
+            type="button"
+            onClick={onDisconnect}
+            className="hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer font-medium"
+          >
+            End Session
+          </button>
+        </div>
       </div>
 
-      {/* Main Send Card */}
-      <div className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-xs">
+      {/* Main Send Text Card */}
+      <div className="w-full mt-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-xs">
         <label
           htmlFor="drop-textarea"
           className="block text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2"
@@ -239,21 +209,21 @@ export function SenderView({
           value={textPayload}
           onChange={(e) => setTextPayload(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Paste code, URL, or notes here…"
+          placeholder="Paste code, URL, or notes here… (Press Enter to send, Shift+Enter for new line)"
           rows={5}
           className="w-full p-3.5 font-mono text-sm leading-relaxed bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:border-neutral-900 dark:focus:border-neutral-100 focus:outline-hidden text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 resize-y"
         />
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <span className="text-xs text-neutral-400 font-mono">
-            {textPayload.length > 0 ? `${textPayload.length} chars` : ''}
+            {textPayload.length > 0 ? `${textPayload.length} chars` : 'Press Enter to send'}
           </span>
 
           <button
             type="button"
             onClick={handleSend}
             disabled={!textPayload.trim() || sendState === 'sending'}
-            className={`py-3 px-8 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center space-x-2 ${
+            className={`py-3 px-8 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center space-x-2 cursor-pointer ${
               sendState === 'sent'
                 ? 'bg-emerald-600 text-white font-bold'
                 : sendState === 'failed'
@@ -276,61 +246,14 @@ export function SenderView({
         </div>
       </div>
 
-      {/* File Upload — always visible regardless of device */}
-      <div className="w-full">
-        <FileUploader onSendFile={onSendMessage} />
-      </div>
+      {/* File Upload Section (supports single and multiple files) */}
+      <FileUploader onSendFile={(payload) => onSendMessage(payload)} />
 
-      {/* Received Text Card — sender can also receive */}
-      {latestMessage && (
-        <div className="w-full mt-6 bg-white dark:bg-neutral-900 border-2 border-neutral-900 dark:border-neutral-100 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
-                Received
-              </h2>
-            </div>
-            <span className="text-xs text-neutral-400 font-mono">
-              {new Date(latestMessage.timestamp).toLocaleTimeString()}
-            </span>
-          </div>
-
-          <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 overflow-x-auto max-h-[380px]">
-            <MessageRenderer text={latestMessage.text} />
-          </div>
-
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={async () => {
-                const toCopy = latestMessage.text.startsWith('FILE::')
-                  ? latestMessage.text.split('::')[1]
-                  : latestMessage.text;
-                await copyToClipboard(toCopy);
-              }}
-              className="flex-1 py-3 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 font-bold text-sm transition-colors"
-            >
-              {latestMessage.text.startsWith('FILE::') ? 'COPY LINK' : 'COPY'}
-            </button>
-            {onClearMessage && (
-              <button
-                type="button"
-                onClick={onClearMessage}
-                className="py-3 px-5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-sm transition-colors"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Activity History */}
+      {/* Sent History */}
       {history.length > 0 && (
         <div className="w-full mt-6">
           <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2 px-1">
-            Recent Activity ({history.length})
+            Recently Sent ({history.length})
           </h3>
           <div className="space-y-2">
             {history.map((item) => (
@@ -356,6 +279,16 @@ export function SenderView({
       <p className="mt-8 text-xs text-neutral-400 dark:text-neutral-500 text-center">
         {PRIVACY_STATEMENT}
       </p>
+
+      {/* QR Modal */}
+      {code && (
+        <QrCodeModal
+          url={joinUrl}
+          code={code}
+          isOpen={showQr}
+          onClose={() => setShowQr(false)}
+        />
+      )}
     </div>
   );
 }
