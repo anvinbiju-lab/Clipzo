@@ -10,18 +10,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       request,
       onBeforeGenerateToken: async (pathname) => {
         return {
-          // Allow images, documents, and archives
-          allowedContentTypes: [
-            'image/jpeg',
-            'image/png',
-            'image/gif',
-            'image/webp',
-            'image/svg+xml',
-            'application/pdf',
-            'text/plain',
-            'application/zip',
-            'application/x-zip-compressed'
-          ],
           tokenPayload: JSON.stringify({}),
         };
       },
