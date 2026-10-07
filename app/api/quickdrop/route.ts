@@ -3,7 +3,7 @@ import { roomManager } from '../../../server/room-manager';
 import type { ClientMessage, Role } from '../../../types/protocol';
 
 // HTTP Polling Fallback for Vercel Serverless
-// Uses the same in-memory roomManager. On Vercel, this works as long as the lambda stays hot.
+// Uses the async KV-backed roomManager to persist across lambda cold starts.
 
 export async function POST(req: Request) {
   try {
@@ -13,8 +13,8 @@ export async function POST(req: Request) {
     switch (body.t) {
       case 'create': {
         const role: Role = (body as any).role || 'send';
-        const { code, token, pcToken } = roomManager.createRoom(ip, role);
-        const joinResult = roomManager.joinRoom(code, role, token, null as any, ip);
+        const { code, token, pcToken } = await roomManager.createRoom(ip, role);
+        const joinResult = await roomManager.joinRoom(code, role, token, ip);
         return NextResponse.json({
           t: 'created',
           code,
@@ -26,7 +26,10 @@ export async function POST(req: Request) {
       }
 
       case 'join': {
-        const result = roomManager.joinRoom(body.code, body.role, body.token, null as any, ip);
+        const result = await roomManager.joinRoom(body.code, body.role, body.token, ip);
+        // If peer is connected, we must notify them through WebSocket if they are actively connected
+        await roomManager.peerJoined(result.token);
+        
         return NextResponse.json({
           t: 'joined',
           role: result.role,
@@ -38,56 +41,30 @@ export async function POST(req: Request) {
 
       case 'msg': {
         if (!body.d) return NextResponse.json({ t: 'err', msg: 'Empty message' }, { status: 400 });
-        const { ackId, targetWs } = roomManager.relayMessage(body.token, body.id, body.d);
         
-        // In HTTP mode, targetWs is null. We must queue the message in the room for the peer to poll.
-        const code = (roomManager as any).tokenToCode.get(body.token);
-        const room = roomManager.getRoom(code);
-        if (room) {
-          const isSender = room.phoneToken === body.token;
-          if (isSender) {
-            if (!room.pcQueue) room.pcQueue = [];
-            room.pcQueue.push({ t: 'msg', id: body.id, d: body.d, ts: Date.now() });
-          } else {
-            if (!room.phoneQueue) room.phoneQueue = [];
-            room.phoneQueue.push({ t: 'msg', id: body.id, d: body.d, ts: Date.now() });
-          }
+        const { ackId, targetWs } = await roomManager.relayMessage(body.token, body.id, body.d);
+        
+        // If the target peer is actively connected to the same instance via WebSocket, push immediately
+        if (targetWs && targetWs.readyState === 1) {
+          targetWs.send(JSON.stringify({ t: 'msg', id: body.id, d: body.d, ts: Date.now() }));
         }
 
         return NextResponse.json({ t: 'ack', id: ackId });
       }
 
       case 'poll': {
-        const code = (roomManager as any).tokenToCode.get(body.token);
-        if (!code) return NextResponse.json({ t: 'expired' });
-        
-        const room = roomManager.getRoom(code);
-        if (!room) return NextResponse.json({ t: 'expired' });
-
-        // Update activity
-        room.lastActiveAt = Date.now();
-
-        const isReceiver = body.role === 'receive' || (body.role as string) === 'pc';
-        const peerConnected = isReceiver ? !!room.phoneToken : !!room.pcToken;
-        let messages: any[] = [];
-        
-        if (isReceiver) {
-          messages = room.pcQueue || [];
-          room.pcQueue = []; // Clear queue after reading
-        } else {
-          messages = room.phoneQueue || [];
-          room.phoneQueue = []; // Clear queue after reading
-        }
+        const result = await roomManager.pollMessages(body.token, body.role);
+        if (!result) return NextResponse.json({ t: 'expired' });
 
         return NextResponse.json({
           t: 'poll_result',
-          peerConnected,
-          messages,
+          peerConnected: result.peerConnected,
+          messages: result.messages,
         });
       }
 
       case 'leave': {
-        if (body.token) roomManager.leaveRoom(body.token);
+        if (body.token) await roomManager.leaveRoom(body.token);
         return NextResponse.json({ t: 'ok' });
       }
 

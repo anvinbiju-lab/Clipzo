@@ -22,7 +22,7 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
     const ip = getClientIp(req);
     let assignedToken: string | null = null;
 
-    ws.on('message', (rawData: Buffer | string) => {
+    ws.on('message', async (rawData: Buffer | string) => {
       try {
         const text = rawData.toString();
         const msg = JSON.parse(text) as ClientMessage;
@@ -31,23 +31,11 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
           case 'create': {
             try {
               const role: Role = (msg as any).role || 'pc';
-              const { code, token, pcToken } = roomManager.createRoom(ip, role);
+              const { code, token, pcToken } = await roomManager.createRoom(ip, role);
               assignedToken = token;
-              const joinResult = roomManager.joinRoom(code, role, token, ws, ip);
-              sendJson(ws, {
-                t: 'created',
-                code,
-                pcToken,
-                token,
-                role,
-              } as any);
-              sendJson(ws, {
-                t: 'joined',
-                role,
-                token,
-                code,
-                peerConnected: joinResult.peerConnected,
-              });
+              const joinResult = await roomManager.joinRoom(code, role, token, ip, ws);
+              sendJson(ws, { t: 'created', code, pcToken, token, role } as any);
+              sendJson(ws, { t: 'joined', role, token, code, peerConnected: joinResult.peerConnected });
             } catch (err: unknown) {
               const error = err as Error;
               sendJson(ws, { t: 'err', msg: error.message || 'Failed to create room' });
@@ -57,25 +45,10 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
 
           case 'join': {
             try {
-              const result = roomManager.joinRoom(msg.code, msg.role, msg.token, ws, ip);
+              const result = await roomManager.joinRoom(msg.code, msg.role, msg.token, ip, ws);
               assignedToken = result.token;
-              sendJson(ws, {
-                t: 'joined',
-                role: result.role,
-                token: result.token,
-                code: result.code,
-                peerConnected: result.peerConnected,
-              });
-
-              // Notify peer if present
-              const room = roomManager.getRoom(result.code);
-              if (room) {
-                const isSender = result.role === 'send' || (result.role as string) === 'phone';
-                const peerWs = isSender ? room.pcWs : room.phoneWs;
-                if (peerWs && peerWs.readyState === 1) {
-                  sendJson(peerWs, { t: 'peer_joined' });
-                }
-              }
+              sendJson(ws, { t: 'joined', role: result.role, token: result.token, code: result.code, peerConnected: result.peerConnected });
+              await roomManager.peerJoined(result.token);
             } catch (err: unknown) {
               const error = err as Error;
               sendJson(ws, { t: 'err', msg: error.message || 'Failed to join room' });
@@ -89,19 +62,11 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
                 sendJson(ws, { t: 'err', msg: 'Message cannot be empty' });
                 return;
               }
-              const { targetWs, ackId } = roomManager.relayMessage(msg.token, msg.id, msg.d);
-
-              // Immediate delivery ACK to sender
+              const { targetWs, ackId } = await roomManager.relayMessage(msg.token, msg.id, msg.d);
               sendJson(ws, { t: 'ack', id: ackId });
 
-              // Forward exact text to target peer
               if (targetWs && targetWs.readyState === 1) {
-                sendJson(targetWs, {
-                  t: 'msg',
-                  id: msg.id,
-                  d: msg.d, // exact byte-for-byte preservation
-                  ts: Date.now(),
-                });
+                sendJson(targetWs, { t: 'msg', id: msg.id, d: msg.d, ts: Date.now() });
               }
             } catch (err: unknown) {
               const error = err as Error;
@@ -112,7 +77,7 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
 
           case 'leave': {
             if (msg.token) {
-              roomManager.leaveRoom(msg.token);
+              await roomManager.leaveRoom(msg.token);
             }
             break;
           }
@@ -131,8 +96,8 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
       }
     });
 
-    ws.on('close', () => {
-      const result = roomManager.handleDisconnect(ws);
+    ws.on('close', async () => {
+      const result = await roomManager.handleDisconnect(ws);
       if (result && result.peerWs && result.peerWs.readyState === 1) {
         sendJson(result.peerWs, { t: 'peer_left' });
       }
