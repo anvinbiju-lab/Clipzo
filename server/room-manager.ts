@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { createClient } from '@vercel/kv';
 import { generateSessionToken, generateUniqueRoomCode } from './code-generator';
 import { RateLimiter } from './rate-limiter';
 import type { Role } from '../types/protocol';
@@ -15,7 +15,11 @@ export interface Room {
 export const INACTIVITY_TIMEOUT_SECONDS = 30 * 60; // 30 minutes
 export const MAX_MESSAGE_SIZE_BYTES = 256 * 1024; // 256 KB
 
-const USE_KV = !!process.env.KV_REST_API_URL;
+const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const USE_KV = !!kvUrl;
+
+const kv = USE_KV ? createClient({ url: kvUrl!, token: kvToken! }) : (null as any);
 
 class StateStore {
   private memRooms = new Map<string, Room>();
