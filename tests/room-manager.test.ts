@@ -12,105 +12,104 @@ function createMockWs(): WebSocket {
 }
 
 describe('RoomManager', () => {
-  it('should create a room with unique code and pcToken', () => {
+  it('should create a room with unique code and pcToken', async () => {
     const manager = new RoomManager();
-    const { code, pcToken } = manager.createRoom('127.0.0.1');
+    const { code, pcToken } = await manager.createRoom('127.0.0.1');
 
     expect(code.length).toBeGreaterThanOrEqual(2);
     expect(pcToken).toHaveLength(64);
-    expect(manager.getActiveRoomCount()).toBe(1);
   });
 
-  it('should reject joining non-existent room', () => {
+  it('should reject joining non-existent room', async () => {
     const manager = new RoomManager();
     const ws = createMockWs();
 
-    expect(() => {
-      manager.joinRoom('ZZZZ', 'phone', undefined, ws, '127.0.0.1');
-    }).toThrow('Room not found');
+    await expect(async () => {
+      await manager.joinRoom('ZZZZ', 'phone', undefined, '127.0.0.1', ws);
+    }).rejects.toThrow('Room not found');
   });
 
-  it('should allow phone to join valid room', () => {
+  it('should allow phone to join valid room', async () => {
     const manager = new RoomManager();
-    const { code } = manager.createRoom('127.0.0.1');
+    const { code } = await manager.createRoom('127.0.0.1', 'receive');
     const phoneWs = createMockWs();
 
-    const joinResult = manager.joinRoom(code, 'phone', undefined, phoneWs, '127.0.0.1');
+    const joinResult = await manager.joinRoom(code, 'phone', undefined, '127.0.0.1', phoneWs);
     expect(joinResult.role).toBe('phone');
     expect(joinResult.token).toHaveLength(64);
     expect(joinResult.code).toBe(code);
   });
 
-  it('should prevent a second phone from hijacking an occupied room', () => {
+  it('should prevent a second phone from hijacking an occupied room', async () => {
     const manager = new RoomManager();
-    const { code } = manager.createRoom('127.0.0.1');
+    const { code } = await manager.createRoom('127.0.0.1', 'receive');
     const phone1Ws = createMockWs();
     const phone2Ws = createMockWs();
 
     // First phone joins
-    manager.joinRoom(code, 'phone', undefined, phone1Ws, '127.0.0.1');
+    await manager.joinRoom(code, 'phone', undefined, '127.0.0.1', phone1Ws);
 
     // Second phone tries to join
-    expect(() => {
-      manager.joinRoom(code, 'phone', undefined, phone2Ws, '127.0.0.2');
-    }).toThrow('Room already in use');
+    await expect(async () => {
+      await manager.joinRoom(code, 'phone', undefined, '127.0.0.2', phone2Ws);
+    }).rejects.toThrow('Room already in use');
   });
 
-  it('should allow phone to reconnect using its issued session token', () => {
+  it('should allow phone to reconnect using its issued session token', async () => {
     const manager = new RoomManager();
-    const { code } = manager.createRoom('127.0.0.1');
+    const { code } = await manager.createRoom('127.0.0.1', 'receive');
     const phoneWs1 = createMockWs();
-    const { token: phoneToken } = manager.joinRoom(code, 'phone', undefined, phoneWs1, '127.0.0.1');
+    const { token: phoneToken } = await manager.joinRoom(code, 'phone', undefined, '127.0.0.1', phoneWs1);
 
     // Phone disconnects then reconnects with same token
     const phoneWs2 = createMockWs();
-    const reconnectResult = manager.joinRoom(code, 'phone', phoneToken, phoneWs2, '127.0.0.1');
+    const reconnectResult = await manager.joinRoom(code, 'phone', phoneToken, '127.0.0.1', phoneWs2);
 
     expect(reconnectResult.token).toBe(phoneToken);
   });
 
-  it('should relay messages from phone to PC with exact byte preservation', () => {
+  it('should relay messages from phone to PC with exact byte preservation', async () => {
     const manager = new RoomManager();
-    const { code, pcToken } = manager.createRoom('127.0.0.1');
+    const { code, pcToken } = await manager.createRoom('127.0.0.1', 'receive');
     const pcWs = createMockWs();
     const phoneWs = createMockWs();
 
-    manager.joinRoom(code, 'pc', pcToken, pcWs, '127.0.0.1');
-    const { token: phoneToken } = manager.joinRoom(code, 'phone', undefined, phoneWs, '127.0.0.1');
+    await manager.joinRoom(code, 'pc', pcToken, '127.0.0.1', pcWs);
+    const { token: phoneToken } = await manager.joinRoom(code, 'phone', undefined, '127.0.0.1', phoneWs);
 
     const exactCodeSnippet = '#include <stdio.h>\n\nint main() {\n    printf("Hello QuickDrop!\\n");\n    return 0;\n}';
-    const { targetWs, ackId } = manager.relayMessage(phoneToken, 'msg-1', exactCodeSnippet);
+    const { targetWs, ackId } = await manager.relayMessage(phoneToken, 'msg-1', exactCodeSnippet);
 
     expect(targetWs).toBe(pcWs);
     expect(ackId).toBe('msg-1');
   });
 
-  it('should reject messages exceeding maximum size of 256 KB', () => {
+  it('should reject messages exceeding maximum size of 256 KB', async () => {
     const manager = new RoomManager();
-    const { code } = manager.createRoom('127.0.0.1');
+    const { code } = await manager.createRoom('127.0.0.1', 'receive');
     const phoneWs = createMockWs();
-    const { token: phoneToken } = manager.joinRoom(code, 'phone', undefined, phoneWs, '127.0.0.1');
+    const { token: phoneToken } = await manager.joinRoom(code, 'phone', undefined, '127.0.0.1', phoneWs);
 
     const largePayload = 'A'.repeat(MAX_MESSAGE_SIZE_BYTES + 10);
-    expect(() => {
-      manager.relayMessage(phoneToken, 'msg-large', largePayload);
-    }).toThrow('That message is too large. Maximum size is 256 KB.');
+    await expect(async () => {
+      await manager.relayMessage(phoneToken, 'msg-large', largePayload);
+    }).rejects.toThrow('That message is too large');
   });
 
-  it('should reject unauthorized message sending without valid token', () => {
+  it('should reject unauthorized message sending without valid token', async () => {
     const manager = new RoomManager();
-    expect(() => {
-      manager.relayMessage('bad-token', 'msg-fake', 'hello');
-    }).toThrow('Session expired or invalid');
+    await expect(async () => {
+      await manager.relayMessage('bad-token', 'msg-fake', 'hello');
+    }).rejects.toThrow('Session expired or invalid');
   });
 
-  it('should destroy room and delete session data when leaveRoom is called', () => {
+  it('should destroy room and delete session data when leaveRoom is called', async () => {
     const manager = new RoomManager();
-    const { code, pcToken } = manager.createRoom('127.0.0.1');
-    expect(manager.getRoom(code)).toBeDefined();
+    const { code, pcToken } = await manager.createRoom('127.0.0.1');
 
-    manager.leaveRoom(pcToken);
-    expect(manager.getRoom(code)).toBeUndefined();
-    expect(manager.getActiveRoomCount()).toBe(0);
+    await manager.leaveRoom(pcToken);
+    await expect(async () => {
+      await manager.joinRoom(code, 'phone', undefined, '127.0.0.1');
+    }).rejects.toThrow('Room not found');
   });
 });

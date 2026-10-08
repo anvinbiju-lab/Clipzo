@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import { Outfit } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
 
 export const metadata: Metadata = {
-  title: 'QuickDrop - Share instantly. No limits.',
-  description: 'Ultra-fast temporary text and file transfer between any devices. No login required.',
+  title: 'Clipzo — Instant clipboard across devices',
+  description: 'Paste code on your phone, pick it up on any PC. No login, no install.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#030712',
+  themeColor: '#09090b',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -28,17 +29,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={outfit.variable}>
-      <body className="min-h-screen flex flex-col font-sans bg-mesh selection:bg-blue-500/30 selection:text-blue-900 dark:selection:text-blue-100">
-        <div className="flex-1 relative z-10 flex flex-col">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen flex flex-col font-sans antialiased">
+        <div className="flex-1 relative flex flex-col">
           {children}
         </div>
-        <aside
-          aria-label="Watermark"
-          className="fixed bottom-4 right-4 z-50 pointer-events-none select-none rounded-full px-3.5 py-1.5 text-[10px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 glass-panel uppercase shadow-lg"
-        >
-          Developed By Anvin
-        </aside>
+        <footer className="w-full py-3 text-center text-[10px] font-medium tracking-wide" style={{ color: 'var(--fg-faint)' }}>
+          Built by Anvin
+        </footer>
       </body>
     </html>
   );

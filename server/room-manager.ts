@@ -19,7 +19,7 @@ const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const USE_KV = !!kvUrl;
 
-const kv = USE_KV ? new Redis({ url: kvUrl!, token: kvToken! }) : (null as any);
+const kv: Redis | null = USE_KV ? new Redis({ url: kvUrl!, token: kvToken! }) : null;
 
 class StateStore {
   private memRooms = new Map<string, Room>();
@@ -28,33 +28,33 @@ class StateStore {
   private memPhoneQ = new Map<string, any[]>();
 
   async getRoom(code: string): Promise<Room | null> {
-    if (USE_KV) return await kv.get<Room>(`qd:room:${code}`);
+    if (kv) return await kv.get<Room>(`qd:room:${code}`);
     return this.memRooms.get(code) || null;
   }
   async setRoom(code: string, room: Room) {
-    if (USE_KV) await kv.set(`qd:room:${code}`, room, { ex: INACTIVITY_TIMEOUT_SECONDS });
+    if (kv) await kv.set(`qd:room:${code}`, room, { ex: INACTIVITY_TIMEOUT_SECONDS });
     else this.memRooms.set(code, room);
   }
   async delRoom(code: string) {
-    if (USE_KV) await kv.del(`qd:room:${code}`);
+    if (kv) await kv.del(`qd:room:${code}`);
     else this.memRooms.delete(code);
   }
 
   async getCodeByToken(token: string): Promise<string | null> {
-    if (USE_KV) return await kv.get<string>(`qd:token:${token}`);
+    if (kv) return await kv.get<string>(`qd:token:${token}`);
     return this.memTokens.get(token) || null;
   }
   async setToken(token: string, code: string) {
-    if (USE_KV) await kv.set(`qd:token:${token}`, code, { ex: INACTIVITY_TIMEOUT_SECONDS });
+    if (kv) await kv.set(`qd:token:${token}`, code, { ex: INACTIVITY_TIMEOUT_SECONDS });
     else this.memTokens.set(token, code);
   }
   async delToken(token: string) {
-    if (USE_KV) await kv.del(`qd:token:${token}`);
+    if (kv) await kv.del(`qd:token:${token}`);
     else this.memTokens.delete(token);
   }
 
   async pushPcMessage(code: string, msg: any) {
-    if (USE_KV) {
+    if (kv) {
       await kv.rpush(`qd:pcq:${code}`, msg);
       await kv.expire(`qd:pcq:${code}`, INACTIVITY_TIMEOUT_SECONDS);
     } else {
@@ -63,7 +63,7 @@ class StateStore {
     }
   }
   async popPcMessages(code: string): Promise<any[]> {
-    if (USE_KV) {
+    if (kv) {
       const msgs = await kv.lrange(`qd:pcq:${code}`, 0, -1) || [];
       await kv.del(`qd:pcq:${code}`);
       return msgs;
@@ -75,7 +75,7 @@ class StateStore {
   }
 
   async pushPhoneMessage(code: string, msg: any) {
-    if (USE_KV) {
+    if (kv) {
       await kv.rpush(`qd:phoneq:${code}`, msg);
       await kv.expire(`qd:phoneq:${code}`, INACTIVITY_TIMEOUT_SECONDS);
     } else {
@@ -84,7 +84,7 @@ class StateStore {
     }
   }
   async popPhoneMessages(code: string): Promise<any[]> {
-    if (USE_KV) {
+    if (kv) {
       const msgs = await kv.lrange(`qd:phoneq:${code}`, 0, -1) || [];
       await kv.del(`qd:phoneq:${code}`);
       return msgs;
@@ -96,7 +96,7 @@ class StateStore {
   }
 
   async touch(code: string, pcToken: string, phoneToken: string | null) {
-    if (USE_KV) {
+    if (kv) {
       await kv.expire(`qd:room:${code}`, INACTIVITY_TIMEOUT_SECONDS);
       await kv.expire(`qd:token:${pcToken}`, INACTIVITY_TIMEOUT_SECONDS);
       if (phoneToken) await kv.expire(`qd:token:${phoneToken}`, INACTIVITY_TIMEOUT_SECONDS);
@@ -164,26 +164,27 @@ export class RoomManager {
     if (!isReceiver && !isSender) throw new Error('Invalid role');
 
     if (isReceiver) {
-      if (!room.pcToken) {
-        const canJoin = this.rateLimiter.canAttemptJoin(ip);
-        if (!canJoin.allowed) throw new Error('Too many failed attempts. Please wait a moment.');
-        
-        const receiverToken = generateSessionToken();
-        room.pcToken = receiverToken;
-        await this.store.setToken(receiverToken, normalizedCode);
-        await this.store.setRoom(normalizedCode, room);
-        this.rateLimiter.resetFailedJoin(ip);
-        
-        if (ws) this.localSockets.set(receiverToken, ws);
-        return { role, token: receiverToken, code: room.code, peerConnected: !!room.phoneToken };
-      }
-
       if (token && token === room.pcToken) {
         await this.store.touch(normalizedCode, room.pcToken, room.phoneToken);
         if (ws) this.localSockets.set(token, ws);
         return { role, token: room.pcToken, code: room.code, peerConnected: !!room.phoneToken };
       }
-      throw new Error('Unauthorized room access');
+
+      const canJoin = this.rateLimiter.canAttemptJoin(ip);
+      if (!canJoin.allowed) throw new Error('Too many failed attempts. Please wait a moment.');
+
+      if (room.pcToken) {
+        await this.store.delToken(room.pcToken);
+      }
+
+      const receiverToken = generateSessionToken();
+      room.pcToken = receiverToken;
+      await this.store.setToken(receiverToken, normalizedCode);
+      await this.store.setRoom(normalizedCode, room);
+      this.rateLimiter.resetFailedJoin(ip);
+
+      if (ws) this.localSockets.set(receiverToken, ws);
+      return { role, token: receiverToken, code: room.code, peerConnected: !!room.phoneToken };
     } else {
       const canJoin = this.rateLimiter.canAttemptJoin(ip);
       if (!canJoin.allowed) throw new Error('Too many failed attempts. Please wait a moment.');

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { copyToClipboard } from '../lib/clipboard';
-import { PRIVACY_STATEMENT } from '../lib/constants';
 import type { SnippetItem, Role } from '../types/protocol';
 import { FileUploader } from './FileUploader';
 import { QrCodeModal } from './QrCodeModal';
@@ -59,7 +58,7 @@ export function SenderView({
     if (!code) return;
     const ok = await copyToClipboard(code);
     if (ok) {
-      setCopyStatus('Copied ✓');
+      setCopyStatus('Copied');
       setTimeout(() => setCopyStatus(null), 2000);
     }
   };
@@ -73,22 +72,16 @@ export function SenderView({
     if (success) {
       setSendState('sent');
       setTextPayload('');
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 50);
-      setTimeout(() => {
-        setSendState('idle');
-      }, 2500);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+      setTimeout(() => setSendState('idle'), 2500);
     } else {
       setSendState('failed');
-      setTimeout(() => {
-        setSendState('idle');
-      }, 3000);
+      setTimeout(() => setSendState('idle'), 3000);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSend();
     }
@@ -96,192 +89,158 @@ export function SenderView({
 
   const joinUrl = typeof window !== 'undefined' && code ? `${window.location.origin}/j/${code}` : '';
 
+  // Expired state
   if (expired) {
     return (
-      <div className="flex flex-col items-center justify-center p-10 text-center max-w-md mx-auto my-12 glass-panel rounded-3xl shadow-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-red-500/5 pointer-events-none" />
-        <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center text-3xl mb-5 shadow-inner">
-          ⏱️
+      <div className="flex flex-col items-center justify-center py-20 text-center max-w-sm mx-auto animate-fade-in">
+        <div className="card-elevated p-8 w-full">
+          <div className="w-12 h-12 mx-auto rounded-lg flex items-center justify-center mb-4" style={{ background: 'var(--danger-subtle)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--danger)' }}>
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--fg)' }}>Session ended</h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--fg-muted)' }}>
+            All session data has been cleared.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              hasRequestedRoom.current = false;
+              onCreateRoom('send');
+            }}
+            className="btn-primary w-full text-sm"
+          >
+            New session
+          </button>
         </div>
-        <h2 className="text-2xl font-black text-neutral-900 dark:text-white mb-2 z-10">Session Expired</h2>
-        <p className="text-base text-neutral-500 dark:text-neutral-400 mt-2 mb-8 font-medium z-10">
-          This temporary session has expired and all session data was deleted.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            hasRequestedRoom.current = false;
-            onCreateRoom('send');
-          }}
-          className="w-full py-4 px-6 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-200 dark:text-neutral-900 font-bold rounded-2xl shadow-lg transition-all text-base z-10"
-        >
-          Start New Session
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col items-center">
+    <div className="flex flex-col gap-4 animate-fade-in">
+      {/* Error */}
       {error && (
-        <div className="w-full mb-6 p-4 rounded-2xl bg-red-50/80 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm font-bold text-center backdrop-blur-sm">
+        <div className="p-3 rounded-lg text-sm font-medium" style={{ background: 'var(--danger-subtle)', color: 'var(--danger)' }}>
           {error}
         </div>
       )}
 
-      {/* Code Sharing Card */}
-      <div className="w-full glass-panel-heavy rounded-3xl p-8 sm:p-12 flex flex-col items-center shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/20 rounded-full blur-[60px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-[60px] pointer-events-none" />
-
-        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400 mb-3 z-10">
-          Your Pairing Code
-        </span>
-
-        <div className="relative group cursor-pointer z-10" onClick={handleCopyCode} title="Click to copy code">
-          <div className="font-mono text-7xl sm:text-8xl font-black tracking-[0.1em] text-neutral-900 dark:text-white my-3 select-all transition-transform group-hover:scale-105 drop-shadow-xl text-gradient">
-            {code || '··'}
+      {/* Code + Status Row */}
+      <div className="card-elevated p-5">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          {/* Code display */}
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="label mb-1">Room code</div>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="font-mono text-3xl font-bold tracking-widest cursor-pointer transition-colors hover:opacity-70"
+                style={{ color: 'var(--accent)' }}
+                title="Click to copy"
+              >
+                {code || '··'}
+              </button>
+              {copyStatus && (
+                <span className="ml-2 text-xs font-medium animate-fade-in" style={{ color: 'var(--success)' }}>
+                  {copyStatus}
+                </span>
+              )}
+            </div>
           </div>
-          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-blue-50 dark:bg-blue-500/20 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-500/30">
-            {copyStatus || 'Click to copy code'}
-          </span>
-        </div>
 
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mt-8 max-w-sm text-center z-10">
-          Type this code on the receiving device at{' '}
-          <span className="font-mono font-bold text-neutral-800 dark:text-neutral-200 bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-md">
-            {typeof window !== 'undefined' ? window.location.host : 'quickdrop.com'}
-          </span>
-        </p>
-
-        {/* Peer Status Badge */}
-        <div className="mt-8 flex items-center space-x-3 text-sm font-bold px-5 py-2.5 rounded-2xl bg-white/50 dark:bg-black/30 backdrop-blur-sm border border-neutral-200/50 dark:border-white/10 shadow-sm z-10">
-          <span
-            className={`w-3 h-3 rounded-full shadow-inner ${
-              reconnecting
-                ? 'bg-amber-500 animate-pulse'
-                : peerConnected
-                ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]'
-                : 'bg-neutral-400 dark:bg-neutral-600'
-            }`}
-          />
-          <span className="text-neutral-700 dark:text-neutral-200">
-            {reconnecting
-              ? 'Reconnecting…'
-              : peerConnected
-              ? 'Receiver Connected'
-              : 'Waiting for receiver…'}
-          </span>
-        </div>
-
-        {/* Secondary Actions */}
-        <div className="mt-8 pt-6 border-t border-neutral-200/50 dark:border-neutral-700/50 w-full flex items-center justify-center space-x-8 text-sm font-bold text-neutral-500 z-10">
-          <button
-            type="button"
-            onClick={() => setShowQr(true)}
-            className="hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center space-x-2 cursor-pointer"
-          >
-            <span className="text-lg">📱</span>
-            <span>Show QR code</span>
-          </button>
-          <span className="text-neutral-300 dark:text-neutral-700">|</span>
-          <button
-            type="button"
-            onClick={onDisconnect}
-            className="hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
-          >
-            End Session
-          </button>
+          {/* Status + Actions */}
+          <div className="flex items-center gap-3">
+            <div className="badge" style={{
+              background: peerConnected ? 'var(--success-subtle)' : reconnecting ? 'rgba(245,158,11,0.1)' : 'var(--bg-tertiary)',
+              color: peerConnected ? 'var(--success)' : reconnecting ? '#f59e0b' : 'var(--fg-muted)',
+            }}>
+              <span className={`status-dot ${peerConnected ? 'status-dot-success' : reconnecting ? 'status-dot-warning' : 'status-dot-idle'}`} />
+              {reconnecting ? 'Reconnecting' : peerConnected ? 'Connected' : 'Waiting'}
+            </div>
+            <button type="button" onClick={() => setShowQr(true)} className="btn-ghost text-xs px-2 py-1.5" title="Show QR">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="8" height="8" rx="1" />
+                <rect x="14" y="2" width="8" height="8" rx="1" />
+                <rect x="2" y="14" width="8" height="8" rx="1" />
+                <rect x="14" y="14" width="4" height="4" />
+                <line x1="22" y1="14" x2="22" y2="14.01" />
+                <line x1="22" y1="22" x2="22" y2="22.01" />
+                <line x1="18" y1="18" x2="18" y2="18.01" />
+              </svg>
+            </button>
+            <button type="button" onClick={onDisconnect} className="btn-ghost text-xs px-2 py-1.5" style={{ color: 'var(--danger)' }}>
+              End
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Send Text Card */}
-      <div className="w-full mt-8 glass-panel rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <label
-          htmlFor="drop-textarea"
-          className="block text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3"
-        >
-          Paste text / code
+      {/* Text input */}
+      <div className="card-elevated p-5">
+        <label htmlFor="drop-textarea" className="label mb-2 block">
+          Paste text or code
         </label>
-
-        <div className="relative group">
-          <div className="absolute inset-0 bg-blue-500/10 rounded-2xl blur-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
-          <textarea
-            id="drop-textarea"
-            ref={textareaRef}
-            value={textPayload}
-            onChange={(e) => setTextPayload(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Paste code, URL, or notes here… (Press Enter to send)"
-            rows={5}
-            className="relative w-full p-5 font-mono text-base leading-relaxed bg-white/60 dark:bg-black/40 border border-neutral-200/50 dark:border-neutral-700/50 rounded-2xl focus:border-blue-500 dark:focus:border-blue-500 focus:outline-hidden text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 resize-y shadow-inner backdrop-blur-md transition-all"
-          />
-        </div>
-
-        <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-xs font-bold text-neutral-400 font-mono bg-black/5 dark:bg-white/5 px-3 py-1.5 rounded-lg">
-            {textPayload.length > 0 ? `${textPayload.length} characters` : 'Shift+Enter for new line'}
+        <textarea
+          id="drop-textarea"
+          ref={textareaRef}
+          value={textPayload}
+          onChange={(e) => setTextPayload(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Paste your code or program here… (Ctrl+Enter to send)"
+          rows={6}
+          className="input-field font-mono text-sm leading-relaxed resize-y"
+          style={{ minHeight: '120px' }}
+        />
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-xs font-mono" style={{ color: 'var(--fg-faint)' }}>
+            {textPayload.length > 0 ? `${textPayload.length} chars · Ctrl+Enter to send` : 'Ctrl+Enter or Send button to drop'}
           </span>
-
           <button
             type="button"
             onClick={handleSend}
             disabled={!textPayload.trim() || sendState === 'sending'}
-            className={`w-full sm:w-auto py-3.5 px-10 rounded-2xl font-bold text-base shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer transform hover:-translate-y-0.5 ${
+            className="btn-primary text-sm py-2.5 px-6"
+            style={
               sendState === 'sent'
-                ? 'bg-emerald-500 text-white shadow-emerald-500/30'
+                ? { background: 'var(--success)' }
                 : sendState === 'failed'
-                ? 'bg-red-500 text-white shadow-red-500/30'
-                : textPayload.trim() && sendState !== 'sending'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
-                : 'glass-panel text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-70'
-            }`}
+                ? { background: 'var(--danger)' }
+                : {}
+            }
           >
-            <span>
-              {sendState === 'sending'
-                ? 'SENDING…'
-                : sendState === 'sent'
-                ? 'SENT ✓'
-                : sendState === 'failed'
-                ? 'FAILED'
-                : 'SEND NOW'}
-            </span>
+            {sendState === 'sending' ? 'Sending…' : sendState === 'sent' ? 'Sent ✓' : sendState === 'failed' ? 'Failed' : 'Send'}
           </button>
         </div>
       </div>
 
+      {/* File uploader */}
       <FileUploader onSendFile={(payload) => onSendMessage(payload)} />
 
-      {/* Sent History */}
+      {/* History */}
       {history.length > 0 && (
-        <div className="w-full mt-10">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-4 px-2">
-            Recently Sent ({history.length})
-          </h3>
-          <div className="space-y-3">
+        <div>
+          <div className="label mb-2 px-1">Sent ({history.length})</div>
+          <div className="space-y-2">
             {history.map((item) => (
               <div
                 key={item.id}
-                className="glass-panel rounded-2xl p-4 flex items-center justify-between text-sm shadow-sm"
+                className="card p-3 flex items-center justify-between text-sm"
               >
-                <div className="font-mono font-medium text-neutral-700 dark:text-neutral-300 truncate max-w-[70%]">
+                <span className="font-mono text-xs truncate max-w-[70%]" style={{ color: 'var(--fg-muted)' }}>
                   {formatSnippetText(item.text)}
-                </div>
-                <span className="text-xs font-bold text-neutral-400 shrink-0 bg-black/5 dark:bg-white/10 px-2 py-1 rounded-lg">
-                  {new Date(item.timestamp).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                </span>
+                <span className="text-[11px] font-mono" style={{ color: 'var(--fg-faint)' }}>
+                  {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ))}
           </div>
         </div>
       )}
-
-      <p className="mt-12 text-xs font-medium text-neutral-400 dark:text-neutral-500 text-center opacity-70">
-        {PRIVACY_STATEMENT}
-      </p>
 
       {/* QR Modal */}
       {code && (

@@ -22,7 +22,7 @@ export function FileUploader({
 
       if (selectedFiles.length === 1) {
         const file = selectedFiles[0];
-        setProgressText('Uploading file…');
+        setProgressText('Uploading…');
         const uploadPath = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
         const newBlob = await upload(uploadPath, file, {
           access: 'public',
@@ -31,13 +31,13 @@ export function FileUploader({
         const payload = `FILE::${newBlob.url}::${file.name}::${file.type}`;
         const success = await onSendFile(payload, file.name, file.type);
         if (!success) {
-          alert('File uploaded to storage, but could not be delivered to the receiver. Make sure the receiver is connected.');
+          alert('File uploaded but delivery failed. Ensure receiver is connected.');
         }
       } else {
         const uploadedItems: FileItem[] = [];
         for (let i = 0; i < selectedFiles.length; i++) {
           const file = selectedFiles[i];
-          setProgressText(`Uploading ${i + 1} of ${selectedFiles.length}…`);
+          setProgressText(`${i + 1}/${selectedFiles.length}`);
           const uploadPath = `${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
           const newBlob = await upload(uploadPath, file, {
             access: 'public',
@@ -51,20 +51,18 @@ export function FileUploader({
           });
         }
 
-        setProgressText('Delivering files…');
+        setProgressText('Delivering…');
         const payload = `FILES::${JSON.stringify(uploadedItems)}`;
         const success = await onSendFile(payload, `${selectedFiles.length} files`, 'multipart');
         if (!success) {
-          alert('Files uploaded to storage, but could not be delivered to the receiver. Make sure the receiver is connected.');
+          alert('Files uploaded but delivery failed. Ensure receiver is connected.');
         }
       }
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
       console.error('Upload failed', err);
-      alert(`Failed to upload file(s): ${err?.message || 'Check storage token'}`);
+      alert(`Upload failed: ${err?.message || 'Unknown error'}`);
     } finally {
       setUploading(false);
       setProgressText(null);
@@ -72,38 +70,37 @@ export function FileUploader({
   };
 
   return (
-    <div className="w-full mt-6 glass-panel rounded-3xl p-8 sm:p-10 shadow-xl text-center relative overflow-hidden border border-neutral-200/50 dark:border-neutral-700/30">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
-      
-      <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-6 relative z-10">
-        Share Files
-      </h3>
-
-      <div className="relative z-10">
-        <input
-          type="file"
-          multiple
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          id="file-upload"
-          disabled={uploading}
-        />
-        <label
-          htmlFor="file-upload"
-          className={`cursor-pointer inline-flex items-center justify-center py-4 px-10 rounded-2xl font-bold text-base shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0 w-full sm:w-auto ${
-            uploading
-              ? 'bg-neutral-200 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 cursor-not-allowed opacity-80'
-              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-blue-500/30'
-          }`}
-        >
-          <span className="text-xl mr-3 opacity-90">📁</span>
-          {uploading ? (progressText || 'Uploading…') : 'Choose File(s) to Send'}
-        </label>
-      </div>
-      <p className="mt-5 text-xs font-bold text-neutral-400 dark:text-neutral-500 relative z-10 opacity-70">
-        Select multiple images or files at once • Powered by Vercel Blob
-      </p>
+    <div className="card-elevated p-5">
+      <div className="label mb-3">Files</div>
+      <input
+        type="file"
+        multiple
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        id="file-upload"
+        disabled={uploading}
+      />
+      <label
+        htmlFor="file-upload"
+        className={`flex items-center justify-center gap-2 w-full py-3 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+          uploading
+            ? 'opacity-50 cursor-not-allowed'
+            : ''
+        }`}
+        style={{
+          background: uploading ? 'var(--bg-tertiary)' : 'var(--bg-tertiary)',
+          color: uploading ? 'var(--fg-faint)' : 'var(--fg-muted)',
+          border: '1px dashed var(--border)',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        {uploading ? (progressText || 'Uploading…') : 'Choose files'}
+      </label>
     </div>
   );
 }

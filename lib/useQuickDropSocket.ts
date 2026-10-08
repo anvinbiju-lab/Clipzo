@@ -282,7 +282,10 @@ export function useQuickDropSocket(initialRole?: Role) {
       manualDisconnectRef.current = false;
       setState((prev) => ({ ...prev, error: null, expired: false, role }));
 
-      const existingToken = sessionStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || undefined;
+      const storedCode = sessionStorage.getItem(STORAGE_KEYS.ROOM_CODE);
+      const existingToken = (storedCode === code)
+        ? sessionStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || undefined
+        : undefined;
 
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         send({ t: 'join', code, role, token: existingToken });

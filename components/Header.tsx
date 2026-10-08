@@ -13,46 +13,52 @@ interface HeaderProps {
 
 export function Header({ currentRole, onRoleChange, onGoHome }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 w-full glass-panel border-b-0 border-b border-neutral-200/50 dark:border-neutral-800/50 py-3 px-4 sm:px-8 shadow-sm">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
+    <header
+      className="sticky top-0 z-40 w-full py-3 px-4 sm:px-6"
+      style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}
+    >
+      <div className="max-w-2xl mx-auto flex items-center justify-between">
         <button
           type="button"
           onClick={onGoHome}
-          className="flex items-center space-x-3 group cursor-pointer"
+          className="flex items-center gap-2 cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center font-black text-white text-sm shadow-md group-hover:scale-105 transition-transform">
-            QD
-          </div>
-          <div className="text-left hidden sm:block">
-            <h1 className="text-lg font-extrabold tracking-tight text-neutral-900 dark:text-white leading-none">
-              QuickDrop
-            </h1>
-          </div>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
+            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+          </svg>
+          <span className="text-sm font-bold tracking-tight" style={{ color: 'var(--fg)' }}>
+            Clipzo
+          </span>
         </button>
 
-        {/* Role Toggle */}
-        <div className="flex items-center space-x-1.5 p-1 rounded-xl glass-panel-heavy shadow-inner bg-black/5 dark:bg-white/5">
-          <button
-            type="button"
-            onClick={() => onRoleChange('receive')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer ${
-              currentRole === 'receive'
-                ? 'bg-white dark:bg-neutral-800 text-emerald-600 dark:text-emerald-400 shadow-md transform scale-105'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-            }`}
-          >
-            Receive
-          </button>
+        <div
+          className="flex items-center p-0.5 rounded-lg"
+          style={{ background: 'var(--bg-tertiary)' }}
+        >
           <button
             type="button"
             onClick={() => onRoleChange('send')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-300 cursor-pointer ${
-              currentRole === 'send'
-                ? 'bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-md transform scale-105'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-            }`}
+            className="px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer"
+            style={{
+              background: currentRole === 'send' ? 'var(--bg)' : 'transparent',
+              color: currentRole === 'send' ? 'var(--fg)' : 'var(--fg-muted)',
+              boxShadow: currentRole === 'send' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+            }}
           >
             Send
+          </button>
+          <button
+            type="button"
+            onClick={() => onRoleChange('receive')}
+            className="px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer"
+            style={{
+              background: currentRole === 'receive' ? 'var(--bg)' : 'transparent',
+              color: currentRole === 'receive' ? 'var(--fg)' : 'var(--fg-muted)',
+              boxShadow: currentRole === 'receive' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+            }}
+          >
+            Receive
           </button>
         </div>
       </div>
