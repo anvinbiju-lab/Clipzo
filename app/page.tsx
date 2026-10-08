@@ -11,19 +11,17 @@ function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 min-h-screen">
       <div className="flex flex-col items-center w-full max-w-sm">
-        {/* Icon */}
-        <div className="mb-6">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
-            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
-            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-          </svg>
+        {/* Device pill */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold mb-4" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--accent)' }} />
+          Cross-Device Universal Drop
         </div>
 
-        <h1 className="text-2xl font-bold tracking-tight mb-1" style={{ color: 'var(--fg)' }}>
+        <h1 className="text-3xl font-extrabold tracking-tight mb-2 text-center" style={{ color: 'var(--fg)' }}>
           Clipzo
         </h1>
-        <p className="text-sm mb-10" style={{ color: 'var(--fg-muted)' }}>
-          Paste on your phone, pick up on any PC.
+        <p className="text-sm text-center mb-8 max-w-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+          Drop on any screen, grab on another. Phone to PC, PC to phone, or screen to screen.
         </p>
 
         <div className="w-full space-y-3">
@@ -33,7 +31,7 @@ function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
             className="w-full card-elevated p-5 text-left transition-all cursor-pointer hover:shadow-md group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-subtle)' }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105" style={{ background: 'var(--accent-subtle)' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -42,7 +40,7 @@ function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
               <div>
                 <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Send</div>
                 <div className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                  Paste code or drop files to share
+                  Paste code or drop files from this device
                 </div>
               </div>
             </div>
@@ -54,7 +52,7 @@ function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
             className="w-full card-elevated p-5 text-left transition-all cursor-pointer hover:shadow-md group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--success-subtle)' }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105" style={{ background: 'var(--success-subtle)' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--success)' }}>
                   <polyline points="8 17 12 21 16 17" />
                   <line x1="12" y1="12" x2="12" y2="21" />
@@ -64,16 +62,20 @@ function RoleSelector({ onSelect }: { onSelect: (role: Role) => void }) {
               <div>
                 <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Receive</div>
                 <div className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                  Enter code to pick up your content
+                  Enter code to catch content on this device
                 </div>
               </div>
             </div>
           </button>
         </div>
 
-        <p className="mt-10 text-[11px] font-medium" style={{ color: 'var(--fg-faint)' }}>
-          No signup · No install · Ephemeral
-        </p>
+        <div className="mt-8 flex items-center justify-center gap-2 text-[11px] font-medium" style={{ color: 'var(--fg-faint)' }}>
+          <span>Phone ⇄ PC</span>
+          <span>·</span>
+          <span>PC ⇄ Phone</span>
+          <span>·</span>
+          <span>No login needed</span>
+        </div>
       </div>
     </div>
   );

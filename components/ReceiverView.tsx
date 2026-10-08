@@ -61,6 +61,14 @@ export function ReceiverView({
     onJoinRoom(clean);
   };
 
+  const handleLeave = () => {
+    setInputCode('');
+    setIsSubmitting(false);
+    onClearError();
+    onClearMessage();
+    onDisconnect();
+  };
+
   const handleCopy = async (text: string) => {
     const success = await copyToClipboard(text);
     setCopyStatus(success ? 'Copied' : 'Failed');
@@ -110,11 +118,7 @@ export function ReceiverView({
           <p className="text-sm mb-6" style={{ color: 'var(--fg-muted)' }}>All session data has been cleared.</p>
           <button
             type="button"
-            onClick={() => {
-              onDisconnect();
-              setInputCode('');
-              setIsSubmitting(false);
-            }}
+            onClick={handleLeave}
             className="btn-primary w-full text-sm"
           >
             Join another
@@ -219,9 +223,10 @@ export function ReceiverView({
           </div>
           <button
             type="button"
-            onClick={onDisconnect}
-            className="btn-ghost text-xs"
+            onClick={handleLeave}
+            className="btn-ghost text-xs font-medium cursor-pointer"
             style={{ color: 'var(--danger)' }}
+            title="Leave room and enter a new code"
           >
             Leave
           </button>

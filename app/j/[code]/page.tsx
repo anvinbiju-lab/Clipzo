@@ -58,7 +58,10 @@ export default function JoinPage() {
             history={socket.history}
             initialCode={rawCode}
             onJoinRoom={(c) => socket.joinRoom(c, 'receive')}
-            onDisconnect={socket.disconnect}
+            onDisconnect={() => {
+              socket.disconnect();
+              window.location.href = '/';
+            }}
             onClearMessage={socket.clearLatestMessage}
             onClearError={socket.clearError}
           />

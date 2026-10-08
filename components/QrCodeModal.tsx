@@ -12,6 +12,7 @@ interface QrCodeModalProps {
 
 export function QrCodeModal({ url, code, isOpen, onClose }: QrCodeModalProps) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (isOpen && url) {
@@ -26,6 +27,15 @@ export function QrCodeModal({ url, code, isOpen, onClose }: QrCodeModalProps) {
   }, [isOpen, url]);
 
   if (!isOpen) return null;
+
+  const handleCopy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
 
   return (
     <div
@@ -53,9 +63,18 @@ export function QrCodeModal({ url, code, isOpen, onClose }: QrCodeModalProps) {
           )}
         </div>
 
-        <button type="button" onClick={onClose} className="btn-secondary w-full text-sm mt-4">
-          Close
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="btn-primary text-xs py-2 px-3 flex-1"
+          >
+            {copied ? 'Link copied! ✓' : 'Copy link'}
+          </button>
+          <button type="button" onClick={onClose} className="btn-secondary text-xs py-2 px-3">
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

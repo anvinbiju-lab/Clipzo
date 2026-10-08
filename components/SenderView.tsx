@@ -38,6 +38,7 @@ export function SenderView({
   const [showQr, setShowQr] = useState(false);
   const [textPayload, setTextPayload] = useState('');
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const [isResetting, setIsResetting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const hasRequestedRoom = useRef(false);
@@ -47,6 +48,18 @@ export function SenderView({
       onCreateRoom('send');
     }
   }, [code, expired, onCreateRoom]);
+
+  const handleEndSession = async () => {
+    setIsResetting(true);
+    hasRequestedRoom.current = false;
+    setTextPayload('');
+    onClearError();
+    onDisconnect();
+    setTimeout(() => {
+      onCreateRoom('send');
+      setIsResetting(false);
+    }, 50);
+  };
 
   useEffect(() => {
     if (code) {
@@ -151,11 +164,16 @@ export function SenderView({
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="font-mono text-3xl font-bold tracking-widest cursor-pointer transition-colors hover:opacity-70"
+                disabled={!code || isResetting}
+                className="font-mono text-3xl font-bold tracking-widest cursor-pointer transition-colors hover:opacity-70 flex items-center min-h-[36px]"
                 style={{ color: 'var(--accent)' }}
                 title="Click to copy"
               >
-                {code || '··'}
+                {isResetting ? (
+                  <span className="text-sm font-sans tracking-normal opacity-70">New session…</span>
+                ) : (
+                  code || <span className="opacity-40 animate-pulse">··</span>
+                )}
               </button>
               {copyStatus && (
                 <span className="ml-2 text-xs font-medium animate-fade-in" style={{ color: 'var(--success)' }}>
@@ -185,8 +203,15 @@ export function SenderView({
                 <line x1="18" y1="18" x2="18" y2="18.01" />
               </svg>
             </button>
-            <button type="button" onClick={onDisconnect} className="btn-ghost text-xs px-2 py-1.5" style={{ color: 'var(--danger)' }}>
-              End
+            <button
+              type="button"
+              onClick={handleEndSession}
+              disabled={isResetting}
+              className="btn-ghost text-xs px-2.5 py-1.5 font-medium transition-all cursor-pointer"
+              style={{ color: 'var(--danger)' }}
+              title="End current session and start a new one"
+            >
+              {isResetting ? 'Ending…' : 'End session'}
             </button>
           </div>
         </div>
