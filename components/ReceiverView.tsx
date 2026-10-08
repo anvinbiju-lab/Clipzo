@@ -49,8 +49,8 @@ export function ReceiverView({
   }, [initialCode]);
 
   useEffect(() => {
-    if (code) setIsSubmitting(false);
-  }, [code]);
+    if (code || error) setIsSubmitting(false);
+  }, [code, error]);
 
   const handleJoin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

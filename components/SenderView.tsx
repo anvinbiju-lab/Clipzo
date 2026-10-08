@@ -123,8 +123,21 @@ export function SenderView({
     <div className="flex flex-col gap-4 animate-fade-in">
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg text-sm font-medium" style={{ background: 'var(--danger-subtle)', color: 'var(--danger)' }}>
-          {error}
+        <div className="p-3 rounded-lg text-sm font-medium flex items-center justify-between gap-3" style={{ background: 'var(--danger-subtle)', color: 'var(--danger)' }}>
+          <span>{error}</span>
+          {!code && (
+            <button
+              type="button"
+              onClick={() => {
+                hasRequestedRoom.current = false;
+                onClearError();
+                onCreateRoom('send');
+              }}
+              className="text-xs font-semibold underline cursor-pointer"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 

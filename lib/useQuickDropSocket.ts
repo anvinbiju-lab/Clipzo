@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ClientMessage, Role, ServerMessage, SnippetItem } from '../types/protocol';
+import type { ClientMessage, Role, SnippetItem } from '../types/protocol';
 import { MAX_HISTORY_ITEMS, STORAGE_KEYS } from './constants';
 
 export interface QuickDropState {
@@ -32,10 +32,13 @@ export function useQuickDropSocket(initialRole?: Role) {
   });
 
   const wsRef = useRef<WebSocket | null>(null);
-  const isHttpMode = useRef<boolean>(false);
+  const isHttpMode = useRef<boolean>(
+    typeof window !== 'undefined' &&
+      (window.location.hostname.endsWith('vercel.app') ||
+        window.location.hostname.includes('vercel'))
+  );
   const reconnectAttemptsRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pendingAcksRef = useRef<Map<string, (success: boolean) => void>>(new Map());
   const manualDisconnectRef = useRef<boolean>(false);
   const stateRef = useRef(state);
@@ -43,6 +46,12 @@ export function useQuickDropSocket(initialRole?: Role) {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    if (initialRole && !state.role) {
+      setState((prev) => ({ ...prev, role: initialRole }));
+    }
+  }, [initialRole, state.role]);
 
   const sendHttp = async (payload: any) => {
     try {
@@ -58,6 +67,8 @@ export function useQuickDropSocket(initialRole?: Role) {
   };
 
   const handleMessage = useCallback((msg: any) => {
+    if (!msg || typeof msg !== 'object') return;
+
     switch (msg.t) {
       case 'created': {
         const role = msg.role || 'send';
@@ -87,7 +98,7 @@ export function useQuickDropSocket(initialRole?: Role) {
           code: msg.code,
           token: msg.token,
           role: msg.role,
-          peerConnected: msg.peerConnected,
+          peerConnected: msg.peerConnected || false,
           expired: false,
           error: null,
         }));
@@ -102,7 +113,7 @@ export function useQuickDropSocket(initialRole?: Role) {
         break;
       }
       case 'msg': {
-        const item: SnippetItem = { id: msg.id, text: msg.d, timestamp: msg.ts };
+        const item: SnippetItem = { id: msg.id, text: msg.d, timestamp: msg.ts || Date.now() };
         setState((prev) => {
           if (prev.latestMessage?.id === msg.id) return prev;
           const newHistory = [item, ...prev.history.filter((m) => m.id !== msg.id)].slice(0, MAX_HISTORY_ITEMS);
@@ -139,25 +150,62 @@ export function useQuickDropSocket(initialRole?: Role) {
     }
   }, []);
 
-  const send = useCallback(async (msg: ClientMessage) => {
-    if (isHttpMode.current) {
-      const result = await sendHttp(msg);
-      if (result) {
-        handleMessage(result);
-        return true;
-      }
-      return false;
-    } else {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify(msg));
-        return true;
-      }
-      return false;
-    }
-  }, [handleMessage]);
+  // Polling loop: active whenever token is present and HTTP mode is enabled
+  useEffect(() => {
+    if (!state.token || !isHttpMode.current) return;
 
-  const connect = useCallback((onOpenCallback?: () => void) => {
+    let isPolling = false;
+    let isCancelled = false;
+
+    const poll = async () => {
+      if (isPolling || isCancelled || !stateRef.current.token) return;
+      isPolling = true;
+      try {
+        const res = await sendHttp({ t: 'poll', token: stateRef.current.token });
+        if (isCancelled) return;
+        if (res) {
+          if (res.t === 'poll_result') {
+            setState((prev) => {
+              const changedPeer = prev.peerConnected !== res.peerConnected;
+              const changedConn = !prev.connected;
+              if (changedPeer || changedConn) {
+                return { ...prev, peerConnected: res.peerConnected, connected: true, reconnecting: false };
+              }
+              return prev;
+            });
+
+            if (res.messages && Array.isArray(res.messages)) {
+              for (const m of res.messages) {
+                const parsed = typeof m === 'string' ? JSON.parse(m) : m;
+                handleMessage(parsed);
+              }
+            }
+          } else if (res.t === 'expired') {
+            handleMessage(res);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 1000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [state.token, handleMessage]);
+
+  const connectWs = useCallback((onOpenCallback?: () => void) => {
     if (typeof window === 'undefined') return;
+    if (isHttpMode.current) {
+      if (onOpenCallback) onOpenCallback();
+      return;
+    }
 
     if (wsRef.current) {
       try { wsRef.current.close(); } catch {}
@@ -175,19 +223,13 @@ export function useQuickDropSocket(initialRole?: Role) {
         if (ws.readyState !== WebSocket.OPEN) {
           ws.close();
         }
-      }, 3000);
+      }, 2000);
 
       ws.onopen = () => {
         clearTimeout(connectionTimeout);
         isHttpMode.current = false;
         reconnectAttemptsRef.current = 0;
         setState((prev) => ({ ...prev, connected: true, reconnecting: false, error: null }));
-
-        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' }));
-        }, 15000);
-
         if (onOpenCallback) onOpenCallback();
       };
 
@@ -198,157 +240,154 @@ export function useQuickDropSocket(initialRole?: Role) {
       };
 
       ws.onclose = () => {
-        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-        
-        // Fallback to HTTP Mode if WS fails entirely
-        if (!stateRef.current.code && !stateRef.current.token) {
-           isHttpMode.current = true;
-           if (onOpenCallback) onOpenCallback();
-           
-           // Start HTTP Polling loop
-           pingIntervalRef.current = setInterval(async () => {
-             if (stateRef.current.token) {
-               const res = await sendHttp({ t: 'poll', token: stateRef.current.token, role: stateRef.current.role });
-               if (res && res.t === 'poll_result') {
-                 if (res.peerConnected !== stateRef.current.peerConnected) {
-                   setState((prev) => ({ ...prev, peerConnected: res.peerConnected }));
-                 }
-                 if (res.messages) {
-                   res.messages.forEach((m: any) => handleMessage(m));
-                 }
-               } else if (res && res.t === 'expired') {
-                 handleMessage(res);
-               }
-             }
-           }, 2000);
-           return;
-        }
-
-        setState((prev) => ({ ...prev, connected: false }));
-
-        if (manualDisconnectRef.current) {
-          manualDisconnectRef.current = false;
-          return;
-        }
-
-        setState((prev) => {
-          if (!prev.expired && (prev.code || prev.token) && !isHttpMode.current) {
-            const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 10000);
-            reconnectAttemptsRef.current++;
-
-            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = setTimeout(() => {
-              setState((s) => ({ ...s, reconnecting: true }));
-              connect(() => {
-                const storedCode = sessionStorage.getItem(STORAGE_KEYS.ROOM_CODE);
-                const storedToken = sessionStorage.getItem(STORAGE_KEYS.SESSION_TOKEN);
-                const storedRole = sessionStorage.getItem(STORAGE_KEYS.ROLE) as Role | null;
-
-                if (storedCode && storedToken && storedRole) {
-                  send({ t: 'join', code: storedCode, role: storedRole, token: storedToken });
-                }
-              });
-            }, delay);
-          }
-          return prev;
-        });
+        isHttpMode.current = true;
+        setState((prev) => ({ ...prev, connected: !!prev.token }));
+        if (onOpenCallback) onOpenCallback();
       };
 
       ws.onerror = () => {
-         // Silently fail and let onclose handle the HTTP fallback
+        isHttpMode.current = true;
       };
     } catch {
-      setState((prev) => ({ ...prev, error: 'Connection error' }));
+      isHttpMode.current = true;
     }
-  }, [handleMessage, send]);
+  }, [handleMessage]);
 
-  const createRoom = useCallback((role: Role = 'send') => {
-    manualDisconnectRef.current = false;
-    setState((prev) => ({ ...prev, error: null, expired: false, role }));
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      send({ t: 'create', role });
-    } else if (isHttpMode.current) {
-      send({ t: 'create', role });
-    } else {
-      connect(() => {
-        send({ t: 'create', role });
-      });
-    }
-  }, [connect, send]);
-
-  const joinRoom = useCallback(
-    (code: string, role: Role = 'receive') => {
+  const createRoom = useCallback(
+    async (role: Role = 'send') => {
       manualDisconnectRef.current = false;
       setState((prev) => ({ ...prev, error: null, expired: false, role }));
 
+      if (!isHttpMode.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ t: 'create', role }));
+      } else if (!isHttpMode.current) {
+        connectWs(async () => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ t: 'create', role }));
+          } else {
+            const res = await sendHttp({ t: 'create', role });
+            if (res && res.t === 'created') {
+              handleMessage(res);
+            } else {
+              setState((prev) => ({ ...prev, error: res?.msg || 'Failed to create room' }));
+            }
+          }
+        });
+      } else {
+        const res = await sendHttp({ t: 'create', role });
+        if (res && res.t === 'created') {
+          handleMessage(res);
+        } else {
+          setState((prev) => ({ ...prev, error: res?.msg || 'Failed to create room' }));
+        }
+      }
+    },
+    [connectWs, handleMessage]
+  );
+
+  const joinRoom = useCallback(
+    async (code: string, role: Role = 'receive') => {
+      manualDisconnectRef.current = false;
+      const cleanCode = code.trim().toUpperCase();
+      setState((prev) => ({ ...prev, error: null, expired: false, role }));
+
       const storedCode = sessionStorage.getItem(STORAGE_KEYS.ROOM_CODE);
-      const existingToken = (storedCode === code)
+      const existingToken = (storedCode === cleanCode)
         ? sessionStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || undefined
         : undefined;
 
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        send({ t: 'join', code, role, token: existingToken });
-      } else if (isHttpMode.current) {
-        send({ t: 'join', code, role, token: existingToken });
-      } else {
-        connect(() => {
-          send({ t: 'join', code, role, token: existingToken });
+      if (!isHttpMode.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ t: 'join', code: cleanCode, role, token: existingToken }));
+      } else if (!isHttpMode.current) {
+        connectWs(async () => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ t: 'join', code: cleanCode, role, token: existingToken }));
+          } else {
+            const res = await sendHttp({ t: 'join', code: cleanCode, role, token: existingToken });
+            if (res && res.t === 'joined') {
+              handleMessage(res);
+            } else {
+              setState((prev) => ({ ...prev, error: res?.msg || 'Room not found or expired' }));
+            }
+          }
         });
+      } else {
+        const res = await sendHttp({ t: 'join', code: cleanCode, role, token: existingToken });
+        if (res && res.t === 'joined') {
+          handleMessage(res);
+        } else {
+          setState((prev) => ({ ...prev, error: res?.msg || 'Room not found or expired' }));
+        }
       }
     },
-    [connect, send]
+    [connectWs, handleMessage]
   );
 
   const sendMessage = useCallback(
-    (text: string): Promise<boolean> => {
-      return new Promise(async (resolve) => {
-        if (!state.token) return resolve(false);
+    async (text: string): Promise<boolean> => {
+      if (!stateRef.current.token) return false;
 
-        const id = Math.random().toString(36).substring(2, 10);
-        
-        pendingAcksRef.current.set(id, (success) => {
-          if (success) {
-            const item: SnippetItem = { id, text, timestamp: Date.now() };
-            setState((prev) => ({
-              ...prev,
-              history: [item, ...prev.history.filter((m) => m.id !== id)].slice(0, MAX_HISTORY_ITEMS),
-            }));
-          }
-          resolve(success);
+      const id = Math.random().toString(36).substring(2, 10);
+
+      if (!isHttpMode.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        return new Promise<boolean>((resolve) => {
+          pendingAcksRef.current.set(id, (success) => {
+            if (success) {
+              const item: SnippetItem = { id, text, timestamp: Date.now() };
+              setState((prev) => ({
+                ...prev,
+                history: [item, ...prev.history.filter((m) => m.id !== id)].slice(0, MAX_HISTORY_ITEMS),
+              }));
+            }
+            resolve(success);
+          });
+
+          const timeout = setTimeout(() => {
+            if (pendingAcksRef.current.has(id)) {
+              pendingAcksRef.current.delete(id);
+              resolve(false);
+            }
+          }, 8000);
+
+          wsRef.current?.send(JSON.stringify({ t: 'msg', id, d: text, token: stateRef.current.token }));
         });
-
-        // Set local timeout for ack
-        const timeout = setTimeout(() => {
-          if (pendingAcksRef.current.has(id)) {
-            pendingAcksRef.current.delete(id);
-            resolve(false);
-          }
-        }, 8000);
-
-        const sent = await send({ t: 'msg', id, d: text, token: state.token });
-
-        if (!sent) {
-          clearTimeout(timeout);
-          pendingAcksRef.current.delete(id);
-          resolve(false);
-        } else if (isHttpMode.current) {
-          // HTTP mode immediately resolves ack from the POST response
-          clearTimeout(timeout);
+      } else {
+        isHttpMode.current = true;
+        const res = await sendHttp({ t: 'msg', id, d: text, token: stateRef.current.token });
+        if (res && res.t === 'ack') {
+          const item: SnippetItem = { id, text, timestamp: Date.now() };
+          setState((prev) => ({
+            ...prev,
+            history: [item, ...prev.history.filter((m) => m.id !== id)].slice(0, MAX_HISTORY_ITEMS),
+          }));
+          return true;
+        } else {
+          setState((prev) => ({ ...prev, error: res?.msg || 'Failed to send message' }));
+          return false;
         }
-      });
+      }
     },
-    [send, state.token]
+    []
   );
 
   const disconnect = useCallback(() => {
     manualDisconnectRef.current = true;
-    if (state.token) {
-      send({ t: 'leave', token: state.token });
+    if (stateRef.current.token) {
+      if (!isHttpMode.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try { wsRef.current.send(JSON.stringify({ t: 'leave', token: stateRef.current.token })); } catch {}
+      } else {
+        sendHttp({ t: 'leave', token: stateRef.current.token });
+      }
     }
-    if (wsRef.current) wsRef.current.close();
-    if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-    
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch {}
+      wsRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
     sessionStorage.removeItem(STORAGE_KEYS.ROOM_CODE);
     sessionStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
     sessionStorage.removeItem(STORAGE_KEYS.ROLE);
@@ -365,16 +404,17 @@ export function useQuickDropSocket(initialRole?: Role) {
       latestMessage: null,
       history: [],
     });
-  }, [send, state.token]);
+  }, []);
 
   const clearError = useCallback(() => setState((prev) => ({ ...prev, error: null })), []);
   const clearLatestMessage = useCallback(() => setState((prev) => ({ ...prev, latestMessage: null })), []);
 
   useEffect(() => {
     return () => {
-      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (wsRef.current) wsRef.current.close();
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch {}
+      }
     };
   }, []);
 

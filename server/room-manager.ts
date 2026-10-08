@@ -17,9 +17,22 @@ export const MAX_MESSAGE_SIZE_BYTES = 256 * 1024; // 256 KB
 
 const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const USE_KV = !!kvUrl;
+const USE_KV =
+  typeof kvUrl === 'string' &&
+  kvUrl.startsWith('https://') &&
+  typeof kvToken === 'string' &&
+  kvToken.length > 0 &&
+  kvToken !== '[SENSITIVE]';
 
-const kv: Redis | null = USE_KV ? new Redis({ url: kvUrl!, token: kvToken! }) : null;
+let kv: Redis | null = null;
+if (USE_KV) {
+  try {
+    kv = new Redis({ url: kvUrl!, token: kvToken! });
+  } catch (err) {
+    console.error('Failed to initialize Redis client:', err);
+    kv = null;
+  }
+}
 
 class StateStore {
   private memRooms = new Map<string, Room>();
@@ -259,7 +272,8 @@ export class RoomManager {
     return { ackId: messageId };
   }
 
-  public async pollMessages(token: string, role: Role): Promise<{ peerConnected: boolean; messages: any[] } | null> {
+  public async pollMessages(token: string, role?: Role): Promise<{ peerConnected: boolean; messages: any[] } | null> {
+    if (!token) return null;
     const code = await this.store.getCodeByToken(token);
     if (!code) return null;
     const room = await this.store.getRoom(code);
@@ -267,15 +281,29 @@ export class RoomManager {
 
     await this.store.touch(code, room.pcToken, room.phoneToken);
 
-    const isReceiver = role === 'receive' || (role as string) === 'pc';
-    const peerConnected = isReceiver ? !!room.phoneToken : !!room.pcToken;
+    const isPc = token === room.pcToken;
+    const isPhone = token === room.phoneToken;
+    if (!isPc && !isPhone) return null;
+
+    const peerConnected = isPc ? !!room.phoneToken : !!room.pcToken;
     
-    let messages: any[] = [];
-    if (isReceiver) {
-      messages = await this.store.popPcMessages(code);
+    let rawMessages: any[] = [];
+    if (isPc) {
+      rawMessages = await this.store.popPcMessages(code);
     } else {
-      messages = await this.store.popPhoneMessages(code);
+      rawMessages = await this.store.popPhoneMessages(code);
     }
+
+    const messages = (rawMessages || []).map((m) => {
+      if (typeof m === 'string') {
+        try {
+          return JSON.parse(m);
+        } catch {
+          return m;
+        }
+      }
+      return m;
+    });
 
     return { peerConnected, messages };
   }

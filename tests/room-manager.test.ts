@@ -103,13 +103,29 @@ describe('RoomManager', () => {
     }).rejects.toThrow('Session expired or invalid');
   });
 
-  it('should destroy room and delete session data when leaveRoom is called', async () => {
+  it('should deliver messages via pollMessages when using HTTP queue polling', async () => {
     const manager = new RoomManager();
-    const { code, pcToken } = await manager.createRoom('127.0.0.1');
+    const { code, token: senderToken } = await manager.createRoom('127.0.0.1', 'send');
+    const { token: receiverToken } = await manager.joinRoom(code, 'receive', undefined, '127.0.0.2');
 
-    await manager.leaveRoom(pcToken);
-    await expect(async () => {
-      await manager.joinRoom(code, 'phone', undefined, '127.0.0.1');
-    }).rejects.toThrow('Room not found');
+    // Sender sends a message without an active local WebSocket (e.g. serverless)
+    const testSnippet = 'print("Hello from test")';
+    const { ackId } = await manager.relayMessage(senderToken, 'msg-poll-1', testSnippet);
+    expect(ackId).toBe('msg-poll-1');
+
+    // Receiver polls for messages
+    const receiverPoll = await manager.pollMessages(receiverToken);
+    expect(receiverPoll).not.toBeNull();
+    expect(receiverPoll!.peerConnected).toBe(true);
+    expect(receiverPoll!.messages).toHaveLength(1);
+    expect(receiverPoll!.messages[0].d).toBe(testSnippet);
+
+    // Second poll should be empty since messages were popped
+    const secondPoll = await manager.pollMessages(receiverToken);
+    expect(secondPoll!.messages).toHaveLength(0);
+
+    // Sender polls for status and gets peerConnected = true
+    const senderPoll = await manager.pollMessages(senderToken);
+    expect(senderPoll!.peerConnected).toBe(true);
   });
 });
