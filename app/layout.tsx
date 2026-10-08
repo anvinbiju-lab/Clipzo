@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
+import { BackgroundWrapper } from '../components/BackgroundWrapper';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -30,11 +31,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-screen flex flex-col font-sans antialiased">
-        <div className="flex-1 relative flex flex-col">
+      <body className="min-h-screen flex flex-col font-sans antialiased relative">
+        <BackgroundWrapper />
+        <div className="flex-1 relative flex flex-col z-10">
           {children}
         </div>
-        <footer className="w-full py-3 text-center text-[10px] font-medium tracking-wide" style={{ color: 'var(--fg-faint)' }}>
+        <footer className="w-full py-3 text-center text-[10px] font-medium tracking-wide z-10" style={{ color: 'var(--fg-faint)' }}>
           Built by Anvin
         </footer>
       </body>
