@@ -50,6 +50,7 @@ export function SenderView({
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [recentRoomCode, setRecentRoomCode] = useState<string | null>(null);
   const [hasLoadedExisting, setHasLoadedExisting] = useState(false);
+  const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [mode, setMode] = useState<'single' | 'lab'>('single');
@@ -87,16 +88,21 @@ export function SenderView({
     }
   }, [code, expired, onCreateRoom, showManageRoomInput]);
 
-  // Load existing programs if the room contains them (e.g. from joining an existing room)
+  // Load existing programs if the room contains them on initial room join/creation
+  const isInitialLoadRef = useRef(true);
   useEffect(() => {
     if (latestMessage && latestMessage.text.startsWith(PROGRAMS_PREFIX)) {
       try {
         const loaded: LabProgramItem[] = JSON.parse(latestMessage.text.substring(PROGRAMS_PREFIX.length));
         if (Array.isArray(loaded) && loaded.length > 0) {
-          setLabPrograms(loaded);
-          setMode('lab');
-          setActiveLabIndex(0);
-          setHasLoadedExisting(true);
+          // Only automatically load if this is initial mount or explicitly requested to load
+          if (isInitialLoadRef.current) {
+            isInitialLoadRef.current = false;
+            setLabPrograms(loaded);
+            setMode('lab');
+            setActiveLabIndex(0);
+            setHasLoadedExisting(true);
+          }
         }
       } catch (err) {
         console.error('Failed parsing loaded programs', err);
@@ -107,10 +113,12 @@ export function SenderView({
   const handleEndSession = async () => {
     setIsResetting(true);
     hasRequestedRoom.current = false;
+    isInitialLoadRef.current = true;
     setTextPayload('');
     setLabPrograms([{ id: '1', name: '01_program.c', code: '', lang: 'c' }]);
     setActiveLabIndex(0);
     setHasLoadedExisting(false);
+    setSaveBanner(null);
     onClearError();
     onDisconnect();
     setTimeout(() => {
@@ -120,10 +128,10 @@ export function SenderView({
   };
 
   useEffect(() => {
-    if (code) {
+    if (code && mode === 'single') {
       textareaRef.current?.focus();
     }
-  }, [code]);
+  }, [code, mode]);
 
   const handleCopyCode = async () => {
     if (!code) return;
@@ -139,6 +147,7 @@ export function SenderView({
     if (clean.length < 2 || !onJoinRoom) return;
     onClearError();
     setShowManageRoomInput(false);
+    isInitialLoadRef.current = true;
     onJoinRoom(clean);
   };
 
@@ -169,22 +178,33 @@ export function SenderView({
   const handleAddProgram = () => {
     if (labPrograms.length >= 20) return;
     const newIdx = labPrograms.length + 1;
+    const numPrefix = newIdx < 10 ? `0${newIdx}` : `${newIdx}`;
     const id = Math.random().toString(36).substring(2, 7);
+    const prevLang = labPrograms[activeLabIndex]?.lang || 'c';
     const newProg: LabProgramItem = {
       id,
-      name: `0${newIdx}_program.c`,
+      name: `${numPrefix}_program.${prevLang}`,
       code: '',
-      lang: 'c',
+      lang: prevLang,
     };
-    setLabPrograms((prev) => [...prev, newProg]);
-    setActiveLabIndex(labPrograms.length);
+    setLabPrograms((prev) => {
+      const next = [...prev, newProg];
+      setActiveLabIndex(next.length - 1);
+      return next;
+    });
   };
 
   const handleRemoveProgram = (index: number) => {
-    if (labPrograms.length <= 1) return;
-    setLabPrograms((prev) => prev.filter((_, idx) => idx !== index));
-    if (activeLabIndex >= labPrograms.length - 1) {
-      setActiveLabIndex(Math.max(0, labPrograms.length - 2));
+    if (labPrograms.length <= 1) {
+      // Clear the single file instead of deleting the array
+      setLabPrograms([{ id: '1', name: '01_program.c', code: '', lang: 'c' }]);
+      setActiveLabIndex(0);
+      return;
+    }
+    const updated = labPrograms.filter((_, idx) => idx !== index);
+    setLabPrograms(updated);
+    if (activeLabIndex >= updated.length) {
+      setActiveLabIndex(Math.max(0, updated.length - 1));
     }
   };
 
@@ -237,6 +257,7 @@ export function SenderView({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Save all valid files currently entered
   const handleSendLabPrograms = async () => {
     const valid = labPrograms.filter((p) => p.code.trim().length > 0);
     if (valid.length === 0 || labSendState === 'sending') return;
@@ -248,7 +269,53 @@ export function SenderView({
     if (success) {
       setLabSendState('sent');
       setHasLoadedExisting(true);
+      setSaveBanner(`${valid.length} file(s) saved to room ${code || ''}`);
+      setTimeout(() => setLabSendState('idle'), 2500);
+    } else {
+      setLabSendState('failed');
       setTimeout(() => setLabSendState('idle'), 3000);
+    }
+  };
+
+  // Save current file and immediately prepare the next file slot
+  const handleSaveAndAddNext = async () => {
+    const current = labPrograms[activeLabIndex];
+    if (!current || !current.code.trim()) {
+      alert('Please enter some code for the current file before adding another.');
+      return;
+    }
+
+    const valid = labPrograms.filter((p) => p.code.trim().length > 0);
+    if (valid.length === 0 || labSendState === 'sending') return;
+
+    setLabSendState('sending');
+    const payload = PROGRAMS_PREFIX + JSON.stringify(valid);
+    const success = await onSendMessage(payload);
+
+    if (success) {
+      setLabSendState('sent');
+      setHasLoadedExisting(true);
+
+      // Create next file slot and advance to it
+      const nextIdx = labPrograms.length + 1;
+      const numPrefix = nextIdx < 10 ? `0${nextIdx}` : `${nextIdx}`;
+      const id = Math.random().toString(36).substring(2, 7);
+      const prevLang = current.lang || 'c';
+      const newProg: LabProgramItem = {
+        id,
+        name: `${numPrefix}_program.${prevLang}`,
+        code: '',
+        lang: prevLang,
+      };
+
+      setLabPrograms((prev) => {
+        const nextList = [...prev, newProg];
+        setActiveLabIndex(nextList.length - 1);
+        return nextList;
+      });
+
+      setSaveBanner(`File ${valid.length} saved! Now entering File ${nextIdx}.`);
+      setTimeout(() => setLabSendState('idle'), 2500);
     } else {
       setLabSendState('failed');
       setTimeout(() => setLabSendState('idle'), 3000);
@@ -287,6 +354,8 @@ export function SenderView({
     );
   }
 
+  const validFilesCount = labPrograms.filter((p) => p.code.trim().length > 0).length;
+
   return (
     <div className="flex flex-col gap-4 animate-fade-in w-full">
       {/* Error */}
@@ -312,27 +381,28 @@ export function SenderView({
       {/* Code + Status Row */}
       <div className="card-elevated p-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          {/* Code display & Manage existing room options */}
+          {/* Code display */}
           <div className="flex items-center gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="label">Room code</span>
-                {onJoinRoom && !showManageRoomInput && (
+                {/* "Manage existing room" ONLY appears when Multiple Files mode is selected */}
+                {mode === 'lab' && onJoinRoom && !showManageRoomInput && (
                   <button
                     type="button"
                     onClick={() => {
                       setInputRoomCode('');
                       setShowManageRoomInput(true);
                     }}
-                    className="text-[11px] font-medium underline text-neutral-400 hover:text-neutral-200 cursor-pointer transition-colors"
-                    title="Manage an existing room by entering its 2-digit code"
+                    className="text-[11px] font-medium underline text-neutral-400 hover:text-neutral-200 cursor-pointer transition-colors ml-1"
+                    title="Manage an existing room by entering its 2-character code"
                   >
                     Manage existing room
                   </button>
                 )}
               </div>
 
-              {showManageRoomInput ? (
+              {mode === 'lab' && showManageRoomInput ? (
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -385,7 +455,8 @@ export function SenderView({
                       {copyStatus}
                     </span>
                   )}
-                  {recentRoomCode && recentRoomCode !== code && onJoinRoom && (
+                  {/* Recent room chip only appears in Multiple Files mode */}
+                  {mode === 'lab' && recentRoomCode && recentRoomCode !== code && onJoinRoom && (
                     <button
                       type="button"
                       onClick={() => handleJoinExisting(recentRoomCode)}
@@ -441,7 +512,7 @@ export function SenderView({
           <button
             type="button"
             onClick={() => setMode('single')}
-            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-all ${
+            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
               mode === 'single'
                 ? 'bg-neutral-800 text-neutral-100 shadow-sm'
                 : 'text-neutral-400 hover:text-neutral-200'
@@ -452,7 +523,7 @@ export function SenderView({
           <button
             type="button"
             onClick={() => setMode('lab')}
-            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-all ${
+            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${
               mode === 'lab'
                 ? 'bg-neutral-800 text-neutral-100 shadow-sm'
                 : 'text-neutral-400 hover:text-neutral-200'
@@ -509,21 +580,22 @@ export function SenderView({
       ) : (
         /* Multi-File Code Stager / Manager */
         <div className="card-elevated p-5 flex flex-col gap-4" style={{ borderColor: 'var(--accent)', borderWidth: '1px' }}>
+          {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-neutral-800">
             <div>
               <div className="text-sm font-semibold text-neutral-100 flex items-center gap-2">
                 <span>Code Files</span>
                 <span className="badge text-[11px] px-2 py-0.5" style={{ background: 'var(--success-subtle)', color: 'var(--success)' }}>
-                  {labPrograms.length} {labPrograms.length === 1 ? 'File' : 'Files'}
+                  {validFilesCount} of {labPrograms.length} {labPrograms.length === 1 ? 'File' : 'Files'} Ready
                 </span>
                 {hasLoadedExisting && (
                   <span className="badge text-[10px] px-2 py-0.2 opacity-80" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-muted)' }}>
-                    Loaded from room
+                    Saved in room
                   </span>
                 )}
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Saved files can be accessed or managed from any device using code <span className="font-mono font-bold text-neutral-200">{code}</span>.
+                Type each program and save. Receiver can view and copy each file from code <span className="font-mono font-bold text-neutral-200">{code}</span>.
               </p>
             </div>
 
@@ -560,9 +632,26 @@ export function SenderView({
             </div>
           </div>
 
-          {/* Quick File Select Dropdown (especially helpful for many files) */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="relative w-full max-w-xs">
+          {/* Save notification banner */}
+          {saveBanner && (
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-400 animate-fade-in">
+              <span className="font-medium flex items-center gap-1.5">
+                <span>✓</span>
+                <span>{saveBanner}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSaveBanner(null)}
+                className="text-neutral-400 hover:text-neutral-200 font-bold px-1"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* Quick File Select Dropdown & Tabs */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            <div className="relative w-full sm:max-w-xs">
               <select
                 value={activeLabIndex}
                 onChange={(e) => setActiveLabIndex(Number(e.target.value))}
@@ -570,7 +659,7 @@ export function SenderView({
               >
                 {labPrograms.map((p, idx) => (
                   <option key={p.id || idx} value={idx}>
-                    {idx + 1}. {p.name || `File ${idx + 1}`} ({p.lang?.toUpperCase() || 'TXT'})
+                    {idx + 1}. {p.name || `File ${idx + 1}`} ({p.lang?.toUpperCase() || 'TXT'}) {p.code.trim() ? '✓' : '(empty)'}
                   </option>
                 ))}
               </select>
@@ -580,24 +669,30 @@ export function SenderView({
                 </svg>
               </div>
             </div>
+
+            <span className="text-[11px] font-mono text-neutral-400 self-end sm:self-center">
+              Editing #{activeLabIndex + 1} of {labPrograms.length}
+            </span>
           </div>
 
           {/* Program Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
             {labPrograms.map((p, idx) => {
               const isActive = idx === activeLabIndex;
+              const hasCode = p.code.trim().length > 0;
               return (
                 <div
                   key={p.id || idx}
                   onClick={() => setActiveLabIndex(idx)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer transition-all border text-xs whitespace-nowrap shrink-0 ${
                     isActive
-                      ? 'border-neutral-400 bg-neutral-900 text-neutral-100 font-semibold'
+                      ? 'border-indigo-500 bg-neutral-900 text-neutral-100 font-semibold'
                       : 'border-neutral-800 bg-neutral-950/60 text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
                   <span className="font-mono text-[11px] opacity-60">#{idx + 1}</span>
                   <span className="font-mono truncate max-w-[120px]">{p.name || `File ${idx + 1}`}</span>
+                  {hasCode && <span className="text-emerald-400 text-[10px]">✓</span>}
                   {labPrograms.length > 1 && (
                     <button
                       type="button"
@@ -614,6 +709,14 @@ export function SenderView({
                 </div>
               );
             })}
+            <button
+              type="button"
+              onClick={handleAddProgram}
+              className="text-xs px-2.5 py-1.5 rounded-md border border-dashed border-neutral-700 text-neutral-400 hover:text-neutral-200 hover:border-neutral-500 transition-colors whitespace-nowrap shrink-0"
+              title="Add another file slot"
+            >
+              + Add File
+            </button>
           </div>
 
           {/* Active Program Editor */}
@@ -666,7 +769,7 @@ export function SenderView({
                 <textarea
                   value={labPrograms[activeLabIndex].code}
                   onChange={(e) => updateActiveProgram('code', e.target.value)}
-                  placeholder="Paste code or file contents here…"
+                  placeholder="Paste or type program code here…"
                   rows={8}
                   className="input-field font-mono text-xs leading-relaxed resize-y"
                   style={{ minHeight: '160px' }}
@@ -675,11 +778,11 @@ export function SenderView({
             </div>
           )}
 
-          {/* Send / Save Action */}
+          {/* Action Row */}
           <div className="mt-2 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-neutral-400">
-                {labPrograms.filter((p) => p.code.trim().length > 0).length} of {labPrograms.length} files ready
+                {validFilesCount} of {labPrograms.length} file(s) ready
               </span>
               {labPrograms.length > 1 && (
                 <button
@@ -692,32 +795,50 @@ export function SenderView({
                 </button>
               )}
             </div>
-            <button
-              type="button"
-              onClick={handleSendLabPrograms}
-              disabled={
-                labPrograms.filter((p) => p.code.trim().length > 0).length === 0 ||
-                labSendState === 'sending'
-              }
-              className="btn-primary text-sm py-2.5 px-6 font-semibold"
-              style={
-                labSendState === 'sent'
-                  ? { background: 'var(--success)' }
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Primary workflow: Save current file and add next file */}
+              <button
+                type="button"
+                onClick={handleSaveAndAddNext}
+                disabled={
+                  !labPrograms[activeLabIndex]?.code.trim() ||
+                  labSendState === 'sending'
+                }
+                className="btn-primary text-xs py-2 px-4 font-semibold flex items-center gap-1.5"
+                title="Save this file and open a new empty file slot for the next program"
+              >
+                <span>+</span>
+                <span>Save & Add Next File</span>
+              </button>
+
+              {/* Save / Update all files */}
+              <button
+                type="button"
+                onClick={handleSendLabPrograms}
+                disabled={validFilesCount === 0 || labSendState === 'sending'}
+                className="btn-secondary text-xs py-2 px-4 font-semibold"
+                style={
+                  labSendState === 'sent'
+                    ? { background: 'var(--success)', color: '#fff', borderColor: 'var(--success)' }
+                    : labSendState === 'failed'
+                    ? { background: 'var(--danger)', color: '#fff', borderColor: 'var(--danger)' }
+                    : {}
+                }
+              >
+                {labSendState === 'sending'
+                  ? 'Saving…'
+                  : labSendState === 'sent'
+                  ? 'Saved ✓'
                   : labSendState === 'failed'
-                  ? { background: 'var(--danger)' }
-                  : {}
-              }
-            >
-              {labSendState === 'sending'
-                ? 'Saving…'
-                : labSendState === 'sent'
-                ? (hasLoadedExisting ? 'Updated ✓' : 'Saved ✓')
-                : labSendState === 'failed'
-                ? 'Failed'
-                : hasLoadedExisting
-                ? `Update ${labPrograms.length} Files`
-                : labPrograms.length === 1 ? 'Save File' : `Save ${labPrograms.length} Files`}
-            </button>
+                  ? 'Failed'
+                  : hasLoadedExisting
+                  ? `Update ${validFilesCount} Files`
+                  : validFilesCount <= 1
+                  ? 'Save Files'
+                  : `Save ${validFilesCount} Files`}
+              </button>
+            </div>
           </div>
         </div>
       )}
