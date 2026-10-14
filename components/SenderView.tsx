@@ -15,8 +15,10 @@ interface SenderViewProps {
   reconnecting: boolean;
   error: string | null;
   expired: boolean;
+  latestMessage?: SnippetItem | null;
   history: SnippetItem[];
   onCreateRoom: (role?: Role) => void;
+  onJoinRoom?: (code: string) => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onDisconnect: () => void;
   onDestroySession?: () => void;
@@ -25,13 +27,15 @@ interface SenderViewProps {
 
 export function SenderView({
   code,
-  connected,
+  connected: _connected,
   peerConnected,
   reconnecting,
   error,
   expired,
+  latestMessage,
   history,
   onCreateRoom,
+  onJoinRoom,
   onSendMessage,
   onDisconnect,
   onDestroySession: _onDestroySession,
@@ -42,15 +46,63 @@ export function SenderView({
   const [textPayload, setTextPayload] = useState('');
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [isResetting, setIsResetting] = useState(false);
+  const [showManageRoomInput, setShowManageRoomInput] = useState(false);
+  const [inputRoomCode, setInputRoomCode] = useState('');
+  const [recentRoomCode, setRecentRoomCode] = useState<string | null>(null);
+  const [hasLoadedExisting, setHasLoadedExisting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  const [mode, setMode] = useState<'single' | 'lab'>('single');
+  const [labPrograms, setLabPrograms] = useState<LabProgramItem[]>([
+    { id: '1', name: '01_program.c', code: '', lang: 'c' },
+  ]);
+  const [activeLabIndex, setActiveLabIndex] = useState(0);
+  const [labSendState, setLabSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Read saved room from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('clipzo_last_sender_room');
+      if (saved && saved.length >= 2) {
+        setRecentRoomCode(saved.toUpperCase());
+      }
+    }
+  }, []);
+
+  // Persist room code whenever established
+  useEffect(() => {
+    if (code && typeof window !== 'undefined') {
+      localStorage.setItem('clipzo_last_sender_room', code);
+      setRecentRoomCode(code);
+    }
+  }, [code]);
+
+  // Request initial room only if no code is active and user didn't request a specific room
   const hasRequestedRoom = useRef(false);
   useEffect(() => {
-    if (!code && !expired && !hasRequestedRoom.current) {
+    if (!code && !expired && !hasRequestedRoom.current && !showManageRoomInput) {
       hasRequestedRoom.current = true;
       onCreateRoom('send');
     }
-  }, [code, expired, onCreateRoom]);
+  }, [code, expired, onCreateRoom, showManageRoomInput]);
+
+  // Load existing programs if the room contains them (e.g. from joining an existing room)
+  useEffect(() => {
+    if (latestMessage && latestMessage.text.startsWith(PROGRAMS_PREFIX)) {
+      try {
+        const loaded: LabProgramItem[] = JSON.parse(latestMessage.text.substring(PROGRAMS_PREFIX.length));
+        if (Array.isArray(loaded) && loaded.length > 0) {
+          setLabPrograms(loaded);
+          setMode('lab');
+          setActiveLabIndex(0);
+          setHasLoadedExisting(true);
+        }
+      } catch (err) {
+        console.error('Failed parsing loaded programs', err);
+      }
+    }
+  }, [latestMessage]);
 
   const handleEndSession = async () => {
     setIsResetting(true);
@@ -58,6 +110,7 @@ export function SenderView({
     setTextPayload('');
     setLabPrograms([{ id: '1', name: '01_program.c', code: '', lang: 'c' }]);
     setActiveLabIndex(0);
+    setHasLoadedExisting(false);
     onClearError();
     onDisconnect();
     setTimeout(() => {
@@ -79,6 +132,14 @@ export function SenderView({
       setCopyStatus('Copied');
       setTimeout(() => setCopyStatus(null), 2000);
     }
+  };
+
+  const handleJoinExisting = (targetCode: string) => {
+    const clean = targetCode.trim().toUpperCase();
+    if (clean.length < 2 || !onJoinRoom) return;
+    onClearError();
+    setShowManageRoomInput(false);
+    onJoinRoom(clean);
   };
 
   const handleSend = async () => {
@@ -104,14 +165,6 @@ export function SenderView({
       handleSend();
     }
   };
-
-  const [mode, setMode] = useState<'single' | 'lab'>('single');
-  const [labPrograms, setLabPrograms] = useState<LabProgramItem[]>([
-    { id: '1', name: '01_program.c', code: '', lang: 'c' },
-  ]);
-  const [activeLabIndex, setActiveLabIndex] = useState(0);
-  const [labSendState, setLabSendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleAddProgram = () => {
     if (labPrograms.length >= 20) return;
@@ -194,6 +247,7 @@ export function SenderView({
 
     if (success) {
       setLabSendState('sent');
+      setHasLoadedExisting(true);
       setTimeout(() => setLabSendState('idle'), 3000);
     } else {
       setLabSendState('failed');
@@ -234,7 +288,7 @@ export function SenderView({
   }
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-4 animate-fade-in w-full">
       {/* Error */}
       {error && (
         <div className="p-3 rounded-lg text-sm font-medium flex items-center justify-between gap-3" style={{ background: 'var(--danger-subtle)', color: 'var(--danger)' }}>
@@ -258,28 +312,91 @@ export function SenderView({
       {/* Code + Status Row */}
       <div className="card-elevated p-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          {/* Code display */}
+          {/* Code display & Manage existing room options */}
           <div className="flex items-center gap-4">
             <div>
-              <div className="label mb-1">Room code</div>
-              <button
-                type="button"
-                onClick={handleCopyCode}
-                disabled={!code || isResetting}
-                className="font-mono text-3xl font-bold tracking-widest cursor-pointer transition-colors hover:opacity-70 flex items-center min-h-[36px]"
-                style={{ color: 'var(--accent)' }}
-                title="Click to copy"
-              >
-                {isResetting ? (
-                  <span className="text-sm font-sans tracking-normal opacity-70">New session…</span>
-                ) : (
-                  code || <span className="opacity-40 animate-pulse">··</span>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="label">Room code</span>
+                {onJoinRoom && !showManageRoomInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputRoomCode('');
+                      setShowManageRoomInput(true);
+                    }}
+                    className="text-[11px] font-medium underline text-neutral-400 hover:text-neutral-200 cursor-pointer transition-colors"
+                    title="Manage an existing room by entering its 2-digit code"
+                  >
+                    Manage existing room
+                  </button>
                 )}
-              </button>
-              {copyStatus && (
-                <span className="ml-2 text-xs font-medium animate-fade-in" style={{ color: 'var(--success)' }}>
-                  {copyStatus}
-                </span>
+              </div>
+
+              {showManageRoomInput ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleJoinExisting(inputRoomCode);
+                  }}
+                  className="flex items-center gap-2 mt-1 animate-fade-in"
+                >
+                  <input
+                    type="text"
+                    maxLength={2}
+                    value={inputRoomCode}
+                    onChange={(e) => setInputRoomCode(e.target.value.toUpperCase())}
+                    placeholder="··"
+                    autoFocus
+                    className="input-field text-center font-mono text-base font-bold py-1 px-2.5 w-16"
+                  />
+                  <button
+                    type="submit"
+                    disabled={inputRoomCode.trim().length < 2}
+                    className="btn-primary text-xs py-1.5 px-3"
+                  >
+                    Open Room
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowManageRoomInput(false)}
+                    className="btn-ghost text-xs py-1.5 px-2"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    disabled={!code || isResetting}
+                    className="font-mono text-3xl font-bold tracking-widest cursor-pointer transition-colors hover:opacity-70 flex items-center min-h-[36px]"
+                    style={{ color: 'var(--accent)' }}
+                    title="Click to copy room code"
+                  >
+                    {isResetting ? (
+                      <span className="text-sm font-sans tracking-normal opacity-70">New session…</span>
+                    ) : (
+                      code || <span className="opacity-40 animate-pulse">··</span>
+                    )}
+                  </button>
+                  {copyStatus && (
+                    <span className="text-xs font-medium animate-fade-in" style={{ color: 'var(--success)' }}>
+                      {copyStatus}
+                    </span>
+                  )}
+                  {recentRoomCode && recentRoomCode !== code && onJoinRoom && (
+                    <button
+                      type="button"
+                      onClick={() => handleJoinExisting(recentRoomCode)}
+                      className="badge text-[11px] px-2 py-0.5 hover:opacity-80 transition-opacity cursor-pointer font-mono"
+                      style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                      title={`Reopen recent room ${recentRoomCode} to edit or add files`}
+                    >
+                      Recent: {recentRoomCode}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -312,7 +429,7 @@ export function SenderView({
               style={{ color: 'var(--danger)' }}
               title="End current session and start a new one"
             >
-              {isResetting ? 'Ending…' : 'End session'}
+              {isResetting ? 'Ending…' : 'New session'}
             </button>
           </div>
         </div>
@@ -390,7 +507,7 @@ export function SenderView({
           <FileUploader onSendFile={(payload) => onSendMessage(payload)} />
         </>
       ) : (
-        /* Multi-File Code Stager */
+        /* Multi-File Code Stager / Manager */
         <div className="card-elevated p-5 flex flex-col gap-4" style={{ borderColor: 'var(--accent)', borderWidth: '1px' }}>
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-neutral-800">
             <div>
@@ -399,9 +516,14 @@ export function SenderView({
                 <span className="badge text-[11px] px-2 py-0.5" style={{ background: 'var(--success-subtle)', color: 'var(--success)' }}>
                   {labPrograms.length} {labPrograms.length === 1 ? 'File' : 'Files'}
                 </span>
+                {hasLoadedExisting && (
+                  <span className="badge text-[10px] px-2 py-0.2 opacity-80" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-muted)' }}>
+                    Loaded from room
+                  </span>
+                )}
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Saved files can be accessed from any device using code <span className="font-mono font-bold text-neutral-200">{code}</span>.
+                Saved files can be accessed or managed from any device using code <span className="font-mono font-bold text-neutral-200">{code}</span>.
               </p>
             </div>
 
@@ -431,10 +553,32 @@ export function SenderView({
                 type="button"
                 onClick={handleAddProgram}
                 className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                title="Add file"
+                title="Add new file"
               >
                 <span>+ Add File</span>
               </button>
+            </div>
+          </div>
+
+          {/* Quick File Select Dropdown (especially helpful for many files) */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="relative w-full max-w-xs">
+              <select
+                value={activeLabIndex}
+                onChange={(e) => setActiveLabIndex(Number(e.target.value))}
+                className="w-full input-field font-mono text-xs py-1.5 pl-2.5 pr-8 bg-neutral-900 border-neutral-700 rounded-md font-medium text-neutral-200"
+              >
+                {labPrograms.map((p, idx) => (
+                  <option key={p.id || idx} value={idx}>
+                    {idx + 1}. {p.name || `File ${idx + 1}`} ({p.lang?.toUpperCase() || 'TXT'})
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -462,7 +606,7 @@ export function SenderView({
                         handleRemoveProgram(idx);
                       }}
                       className="ml-1 text-neutral-500 hover:text-red-400 text-xs leading-none"
-                      title="Remove file"
+                      title="Delete file"
                     >
                       ×
                     </button>
@@ -503,6 +647,8 @@ export function SenderView({
                     <option value="py">Python (.py)</option>
                     <option value="sql">SQL (.sql)</option>
                     <option value="sh">Shell (.sh)</option>
+                    <option value="js">JavaScript (.js)</option>
+                    <option value="ts">TypeScript (.ts)</option>
                     <option value="txt">Plain Text (.txt)</option>
                   </select>
                 </div>
@@ -531,9 +677,21 @@ export function SenderView({
 
           {/* Send / Save Action */}
           <div className="mt-2 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs font-mono text-neutral-400">
-              {labPrograms.filter((p) => p.code.trim().length > 0).length} of {labPrograms.length} files ready
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-neutral-400">
+                {labPrograms.filter((p) => p.code.trim().length > 0).length} of {labPrograms.length} files ready
+              </span>
+              {labPrograms.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveProgram(activeLabIndex)}
+                  className="text-xs text-red-400 hover:underline cursor-pointer ml-2"
+                  title="Delete current file"
+                >
+                  Delete this file
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={handleSendLabPrograms}
@@ -553,9 +711,11 @@ export function SenderView({
               {labSendState === 'sending'
                 ? 'Saving…'
                 : labSendState === 'sent'
-                ? 'Saved ✓'
+                ? (hasLoadedExisting ? 'Updated ✓' : 'Saved ✓')
                 : labSendState === 'failed'
                 ? 'Failed'
+                : hasLoadedExisting
+                ? `Update ${labPrograms.length} Files`
                 : labPrograms.length === 1 ? 'Save File' : `Save ${labPrograms.length} Files`}
             </button>
           </div>

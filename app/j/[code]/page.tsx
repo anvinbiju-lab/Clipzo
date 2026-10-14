@@ -39,7 +39,7 @@ export default function JoinPage() {
         connected={socket.connected}
       />
 
-      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
         {!socket.code && !socket.error && normalizedCode.length >= 2 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center animate-fade-in">
             <div className="w-8 h-8 rounded-full border-2 border-current border-t-transparent animate-spin mb-3 mx-auto" style={{ color: 'var(--accent)' }} />

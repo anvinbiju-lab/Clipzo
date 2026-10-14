@@ -211,8 +211,14 @@ export class RoomManager {
       }
 
       if (room.phoneToken) {
-        this.rateLimiter.recordFailedJoin(ip);
-        throw new Error('Room already in use');
+        const activeWs = this.localSockets.get(room.phoneToken);
+        const isSocketActive = activeWs && (activeWs.readyState === 1 || activeWs.readyState === 0);
+        if (isSocketActive) {
+          this.rateLimiter.recordFailedJoin(ip);
+          throw new Error('Room already in use');
+        } else {
+          await this.store.delToken(room.phoneToken);
+        }
       }
 
       const phoneToken = generateSessionToken();

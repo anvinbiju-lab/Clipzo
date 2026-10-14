@@ -81,7 +81,7 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
   }
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-4 animate-fade-in w-full">
       {/* Top Header Card */}
       <div className="card-elevated p-4 flex flex-wrap items-center justify-between gap-3" style={{ borderColor: 'var(--accent)', borderWidth: '1px' }}>
         <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
               </span>
             </div>
             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-              Shortcuts: <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+C</kbd> Copy code · <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+1..9</kbd> Switch file
+              Select a file from the dropdown or list to view and copy on the right
             </p>
           </div>
         </div>
@@ -150,114 +150,180 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
         </div>
       </div>
 
-      {/* Program Selector Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-        {programs.map((p, idx) => {
-          const isActive = idx === activeIndex;
-          const lineCount = p.code.split('\n').length;
-          return (
-            <div
-              key={p.id || idx}
-              onClick={() => setActiveIndex(idx)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all border text-xs whitespace-nowrap shrink-0 ${
-                isActive
-                  ? 'border-neutral-400 bg-neutral-900 shadow-sm text-neutral-100'
-                  : 'border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
-              }`}
-            >
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] font-bold ${
-                isActive ? 'bg-emerald-500 text-black' : 'bg-neutral-800 text-neutral-400'
-              }`}>
-                {idx + 1}
+      {/* Main Split Layout: Left Dropdown + File List, Right Code Viewer Screen */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start w-full">
+        {/* Left Column: Dropdown menu & File selector */}
+        <div className="md:col-span-4 lg:col-span-4 flex flex-col gap-3">
+          {/* Dropdown Card */}
+          <div className="card-elevated p-3.5 flex flex-col gap-2">
+            <label htmlFor="program-select-dropdown" className="text-xs font-semibold uppercase tracking-wider flex items-center justify-between" style={{ color: 'var(--fg-muted)' }}>
+              <span>Select File</span>
+              <span className="text-[10px] font-mono" style={{ color: 'var(--fg-faint)' }}>
+                {activeIndex + 1} of {programs.length}
               </span>
-              <span className="font-mono font-medium max-w-[140px] truncate">
-                {p.name || `File ${idx + 1}`}
-              </span>
-              <span className="text-[10px] opacity-50 font-mono">
-                {lineCount}L
-              </span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCopy(p.code, p.id);
-                }}
-                className="p-1 hover:text-emerald-400 transition-colors"
-                title={`Copy ${p.name}`}
+            </label>
+            <div className="relative">
+              <select
+                id="program-select-dropdown"
+                value={activeIndex}
+                onChange={(e) => setActiveIndex(Number(e.target.value))}
+                className="w-full input-field font-mono text-xs py-2.5 pl-3 pr-8 appearance-none cursor-pointer bg-neutral-900 border-neutral-700 hover:border-neutral-500 transition-colors rounded-lg font-medium text-neutral-100"
               >
-                {copiedId === p.id ? (
-                  <span className="text-emerald-400 font-bold text-[10px]">✓</span>
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Main Active Program Card */}
-      {activeProgram && (
-        <div className="card-elevated p-5 flex flex-col gap-4">
-          {/* Active Program Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-800">
-            <div className="flex items-center gap-3">
-              <span className="text-base font-bold font-mono text-neutral-100">
-                {activeProgram.name || `File ${activeIndex + 1}`}
-              </span>
-              {activeProgram.lang && (
-                <span className="badge text-[11px] uppercase tracking-wider px-2 py-0.5" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-muted)' }}>
-                  {activeProgram.lang}
-                </span>
-              )}
-              <span className="text-xs font-mono" style={{ color: 'var(--fg-faint)' }}>
-                {lines.length} lines · {activeProgram.code.length} characters
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleDownloadSingle(activeProgram)}
-                className="btn-secondary text-xs py-2 px-3"
-                title="Download this file"
-              >
-                Download File
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCopy(activeProgram.code, activeProgram.id)}
-                className="btn-primary text-xs py-2 px-5 font-semibold tracking-wide"
-                style={copyStatus ? { background: 'var(--success)' } : {}}
-                title="Copy code to clipboard (Alt+C)"
-              >
-                {copyStatus || 'Copy Code'}
-              </button>
+                {programs.map((p, idx) => {
+                  const lineCount = p.code.split('\n').length;
+                  return (
+                    <option key={p.id || idx} value={idx}>
+                      {idx + 1}. {p.name || `File ${idx + 1}`} ({p.lang?.toUpperCase() || 'TXT'}) · {lineCount}L
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
             </div>
           </div>
 
-          {/* Code Viewer with Line Numbers */}
-          <div
-            className="rounded-lg p-3 font-mono text-xs overflow-x-auto max-h-[500px] border border-neutral-800 bg-[#0c0c0e] select-text"
-          >
-            <div className="table w-full">
-              {lines.map((line, idx) => (
-                <div key={idx} className="table-row hover:bg-white/[0.03] transition-colors leading-relaxed">
-                  <span className="table-cell select-none pr-4 text-right text-neutral-600 font-mono text-[11px] w-10">
-                    {idx + 1}
+          {/* Vertical File List for Easy Desktop / Quick Selection */}
+          <div className="card-elevated p-2 flex flex-col gap-1 max-h-[440px] overflow-y-auto scrollbar-thin">
+            {programs.map((p, idx) => {
+              const isActive = idx === activeIndex;
+              const lineCount = p.code.split('\n').length;
+              return (
+                <div
+                  key={p.id || idx}
+                  onClick={() => setActiveIndex(idx)}
+                  className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-all border text-xs ${
+                    isActive
+                      ? 'border-indigo-500/80 bg-indigo-500/10 text-neutral-100 shadow-sm'
+                      : 'border-transparent hover:border-neutral-800 hover:bg-white/[0.03] text-neutral-400 hover:text-neutral-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`w-5 h-5 rounded flex items-center justify-center font-mono text-[10px] font-bold shrink-0 ${
+                      isActive ? 'bg-indigo-500 text-white' : 'bg-neutral-800 text-neutral-400'
+                    }`}>
+                      {idx + 1}
+                    </span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-mono font-medium truncate text-xs text-neutral-200">
+                        {p.name || `File ${idx + 1}`}
+                      </span>
+                      <span className="text-[10px] opacity-60 font-mono">
+                        {p.lang?.toUpperCase() || 'TXT'} · {lineCount} lines
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopy(p.code, p.id);
+                    }}
+                    className="p-1.5 hover:text-emerald-400 rounded hover:bg-neutral-800 transition-colors shrink-0"
+                    title={`Copy ${p.name}`}
+                  >
+                    {copiedId === p.id ? (
+                      <span className="text-emerald-400 font-bold text-[11px]">✓</span>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-[11px] px-1 font-mono" style={{ color: 'var(--fg-faint)' }}>
+            Shortcuts: <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+C</kbd> Copy code · <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+1..9</kbd> Switch
+          </p>
+        </div>
+
+        {/* Right Column: Active Program Viewer Screen */}
+        <div className="md:col-span-8 lg:col-span-8 flex flex-col gap-3">
+          {activeProgram ? (
+            <div className="card-elevated p-5 flex flex-col gap-4">
+              {/* Program Header with File Info & Prominent Copy Button */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-800">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-base font-bold font-mono text-neutral-100">
+                    {activeProgram.name || `File ${activeIndex + 1}`}
                   </span>
-                  <span className="table-cell whitespace-pre text-neutral-200">
-                    {line || ' '}
+                  {activeProgram.lang && (
+                    <span className="badge text-[11px] uppercase tracking-wider px-2 py-0.5 font-semibold" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-muted)' }}>
+                      {activeProgram.lang}
+                    </span>
+                  )}
+                  <span className="text-xs font-mono" style={{ color: 'var(--fg-faint)' }}>
+                    {lines.length} lines · {activeProgram.code.length} chars
                   </span>
                 </div>
-              ))}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSingle(activeProgram)}
+                    className="btn-secondary text-xs py-2 px-3"
+                    title="Download this file"
+                  >
+                    Download File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(activeProgram.code, activeProgram.id)}
+                    className="btn-primary text-xs py-2 px-5 font-semibold tracking-wide flex items-center gap-1.5"
+                    style={copyStatus ? { background: 'var(--success)' } : {}}
+                    title="Copy code to clipboard (Alt+C)"
+                  >
+                    {copyStatus ? (
+                      <>
+                        <span>✓</span>
+                        <span>Copied ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                        </svg>
+                        <span>Copy Code</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Code Viewer with Line Numbers */}
+              <div
+                className="rounded-lg p-3 font-mono text-xs overflow-x-auto max-h-[540px] border border-neutral-800 bg-[#0c0c0e] select-text"
+              >
+                <div className="table w-full">
+                  {lines.map((line, idx) => (
+                    <div key={idx} className="table-row hover:bg-white/[0.03] transition-colors leading-relaxed">
+                      <span className="table-cell select-none pr-4 text-right text-neutral-600 font-mono text-[11px] w-10">
+                        {idx + 1}
+                      </span>
+                      <span className="table-cell whitespace-pre text-neutral-200">
+                        {line || ' '}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="card-elevated p-8 text-center text-sm text-neutral-400">
+              No program selected.
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

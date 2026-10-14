@@ -118,7 +118,7 @@ export default function HomePage() {
         connected={socket.connected}
       />
 
-      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
         {role === 'receive' ? (
           <ReceiverView
             code={socket.code}
@@ -143,8 +143,10 @@ export default function HomePage() {
             reconnecting={socket.reconnecting}
             error={socket.error}
             expired={socket.expired}
+            latestMessage={socket.latestMessage}
             history={socket.history}
             onCreateRoom={() => socket.createRoom('send')}
+            onJoinRoom={(c) => socket.joinRoom(c, 'send')}
             onSendMessage={socket.sendMessage}
             onDisconnect={socket.disconnect}
             onDestroySession={socket.destroySession}
