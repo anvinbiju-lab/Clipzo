@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { copyToClipboard } from '../lib/clipboard';
-import type { SnippetItem } from '../types/protocol';
+import type { SnippetItem, LabProgramItem } from '../types/protocol';
+import { PROGRAMS_PREFIX } from '../types/protocol';
 import { MessageRenderer, type FileItem } from './MessageRenderer';
+import { LabWorkbench } from './LabWorkbench';
 import { formatSnippetText } from '../lib/utils';
 import { triggerDownload, downloadAllFiles } from '../lib/download';
 
@@ -167,7 +169,7 @@ export function ReceiverView({
                   onJoinRoom(val);
                 }
               }}
-              maxLength={4}
+              maxLength={2}
               autoFocus
               autoCapitalize="characters"
               autoCorrect="off"
@@ -186,7 +188,7 @@ export function ReceiverView({
           </form>
 
           <p className="text-[11px] text-center mt-5" style={{ color: 'var(--fg-faint)' }}>
-            No signup needed
+            Enter 2-character room code
           </p>
         </div>
       </div>
@@ -196,7 +198,17 @@ export function ReceiverView({
   // Connected receiver view
   const isBatch = latestMessage?.text.startsWith('FILES::');
   const isSingleFile = latestMessage?.text.startsWith('FILE::');
+  const isPrograms = latestMessage?.text.startsWith(PROGRAMS_PREFIX);
   const isAnyFile = isBatch || isSingleFile;
+
+  let labPrograms: LabProgramItem[] = [];
+  if (isPrograms && latestMessage) {
+    try {
+      labPrograms = JSON.parse(latestMessage.text.substring(PROGRAMS_PREFIX.length));
+    } catch {
+      labPrograms = [];
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 animate-fade-in">
@@ -206,49 +218,58 @@ export function ReceiverView({
         </div>
       )}
 
-      {/* Session bar */}
-      <div className="card-elevated p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-bold px-2 py-0.5 rounded" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg)' }}>
-              {code}
-            </span>
-            <div className="badge" style={{
-              background: peerConnected ? 'var(--success-subtle)' : reconnecting ? 'rgba(245,158,11,0.1)' : 'var(--bg-tertiary)',
-              color: peerConnected ? 'var(--success)' : reconnecting ? '#f59e0b' : 'var(--fg-muted)',
-            }}>
-              <span className={`status-dot ${peerConnected ? 'status-dot-success' : reconnecting ? 'status-dot-warning' : 'status-dot-idle'}`} />
-              {reconnecting ? 'Reconnecting' : peerConnected ? 'Sender connected' : 'Waiting for sender'}
+      {/* Render Lab Workbench if multi-programs payload is present */}
+      {isPrograms && labPrograms.length > 0 ? (
+        <LabWorkbench
+          programs={labPrograms}
+          roomCode={code || ''}
+          onBurnWipe={handleLeave}
+        />
+      ) : (
+        <>
+          {/* Session bar */}
+          <div className="card-elevated p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-bold px-2 py-0.5 rounded" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg)' }}>
+                  {code}
+                </span>
+                <div className="badge" style={{
+                  background: peerConnected ? 'var(--success-subtle)' : reconnecting ? 'rgba(245,158,11,0.1)' : 'var(--bg-tertiary)',
+                  color: peerConnected ? 'var(--success)' : reconnecting ? '#f59e0b' : 'var(--fg-muted)',
+                }}>
+                  <span className={`status-dot ${peerConnected ? 'status-dot-success' : reconnecting ? 'status-dot-warning' : 'status-dot-idle'}`} />
+                  {reconnecting ? 'Reconnecting' : peerConnected ? 'Sender connected' : 'Waiting for sender'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLeave}
+                className="btn-ghost text-xs font-medium cursor-pointer"
+                style={{ color: 'var(--danger)' }}
+                title="Leave room and enter a new code"
+              >
+                Leave
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleLeave}
-            className="btn-ghost text-xs font-medium cursor-pointer"
-            style={{ color: 'var(--danger)' }}
-            title="Leave room and enter a new code"
-          >
-            Leave
-          </button>
-        </div>
-      </div>
 
-      {/* Received content */}
-      {latestMessage ? (
-        <div className="card-elevated p-5" style={{ borderColor: 'var(--success)', borderWidth: '1px' }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="status-dot status-dot-success" style={{ animation: 'pulse 2s infinite' }} />
-              <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>New item received</span>
-            </div>
-            <span className="text-[11px] font-mono" style={{ color: 'var(--fg-faint)' }}>
-              {new Date(latestMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          </div>
+          {/* Received content */}
+          {latestMessage ? (
+            <div className="card-elevated p-5" style={{ borderColor: 'var(--success)', borderWidth: '1px' }}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="status-dot status-dot-success" style={{ animation: 'pulse 2s infinite' }} />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>New item received</span>
+                </div>
+                <span className="text-[11px] font-mono" style={{ color: 'var(--fg-faint)' }}>
+                  {new Date(latestMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              </div>
 
-          <div className="rounded-lg p-4 overflow-x-auto max-h-[400px]" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-            <MessageRenderer text={latestMessage.text} />
-          </div>
+              <div className="rounded-lg p-4 overflow-x-auto max-h-[400px]" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <MessageRenderer text={latestMessage.text} />
+              </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {isAnyFile && (
@@ -335,6 +356,8 @@ export function ReceiverView({
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -39,3 +39,20 @@ export async function downloadAllFiles(files: Array<{ url: string; name: string 
     }
   }
 }
+
+export function downloadTextAsFile(content: string, filename: string): void {
+  try {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename || 'program.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1500);
+  } catch (err) {
+    console.error('Failed to download text as file', err);
+  }
+}
+

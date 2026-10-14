@@ -36,6 +36,7 @@ export async function POST(req: Request) {
           token: result.token,
           code: result.code,
           peerConnected: result.peerConnected,
+          initialPayload: (result as any).initialPayload,
         });
       }
 

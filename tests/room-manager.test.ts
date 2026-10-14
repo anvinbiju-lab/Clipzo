@@ -128,4 +128,31 @@ describe('RoomManager', () => {
     const senderPoll = await manager.pollMessages(senderToken);
     expect(senderPoll!.peerConnected).toBe(true);
   });
+
+  it('should store lastPayload and return initialPayload immediately when receiver joins', async () => {
+    const manager = new RoomManager();
+    const { code, token: senderToken } = await manager.createRoom('127.0.0.1', 'send');
+
+    // Phone stages 7 programs under this 2-char code
+    const stagedPrograms = 'PROGRAMS::' + JSON.stringify([
+      { id: '1', name: '01_fcfs.c', code: 'main() { printf("fcfs"); }', lang: 'c' },
+      { id: '2', name: '02_sjf.c', code: 'main() { printf("sjf"); }', lang: 'c' },
+    ]);
+    await manager.relayMessage(senderToken, 'msg-prog-1', stagedPrograms);
+
+    // Later, student sits at lab PC and enters the code in Receive
+    const joinResult = await manager.joinRoom(code, 'receive', undefined, '127.0.0.3');
+    expect((joinResult as any).initialPayload).toBe(stagedPrograms);
+  });
+
+  it('should immediately wipe room and token upon leaveRoom', async () => {
+    const manager = new RoomManager();
+    const { code, token } = await manager.createRoom('127.0.0.1', 'send');
+    await manager.leaveRoom(token);
+
+    // Room must no longer exist
+    await expect(async () => {
+      await manager.joinRoom(code, 'receive', undefined, '127.0.0.4');
+    }).rejects.toThrow('Room not found');
+  });
 });

@@ -10,10 +10,11 @@ export interface Room {
   createdAt: number;
   lastActiveAt: number;
   seenMessageIds: string[];
+  lastPayload?: string;
 }
 
 export const INACTIVITY_TIMEOUT_SECONDS = 24 * 60 * 60; // 24 hours
-export const MAX_MESSAGE_SIZE_BYTES = 256 * 1024; // 256 KB
+export const MAX_MESSAGE_SIZE_BYTES = 1024 * 1024; // 1 MB
 
 const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -163,7 +164,7 @@ export class RoomManager {
     token: string | undefined,
     ip: string,
     ws?: any
-  ): Promise<{ role: Role; token: string; code: string; peerConnected: boolean }> {
+  ): Promise<{ role: Role; token: string; code: string; peerConnected: boolean; initialPayload?: string }> {
     const normalizedCode = code?.trim().toUpperCase();
     const room = await this.store.getRoom(normalizedCode);
 
@@ -180,7 +181,7 @@ export class RoomManager {
       if (token && token === room.pcToken) {
         await this.store.touch(normalizedCode, room.pcToken, room.phoneToken);
         if (ws) this.localSockets.set(token, ws);
-        return { role, token: room.pcToken, code: room.code, peerConnected: !!room.phoneToken };
+        return { role, token: room.pcToken, code: room.code, peerConnected: !!room.phoneToken, initialPayload: room.lastPayload };
       }
 
       const canJoin = this.rateLimiter.canAttemptJoin(ip);
@@ -197,7 +198,7 @@ export class RoomManager {
       this.rateLimiter.resetFailedJoin(ip);
 
       if (ws) this.localSockets.set(receiverToken, ws);
-      return { role, token: receiverToken, code: room.code, peerConnected: !!room.phoneToken };
+      return { role, token: receiverToken, code: room.code, peerConnected: !!room.phoneToken, initialPayload: room.lastPayload };
     } else {
       const canJoin = this.rateLimiter.canAttemptJoin(ip);
       if (!canJoin.allowed) throw new Error('Too many failed attempts. Please wait a moment.');
@@ -206,7 +207,7 @@ export class RoomManager {
         await this.store.touch(normalizedCode, room.pcToken, room.phoneToken);
         this.rateLimiter.resetFailedJoin(ip);
         if (ws) this.localSockets.set(token, ws);
-        return { role, token: room.phoneToken, code: room.code, peerConnected: !!room.pcToken };
+        return { role, token: room.phoneToken, code: room.code, peerConnected: !!room.pcToken, initialPayload: room.lastPayload };
       }
 
       if (room.phoneToken) {
@@ -221,7 +222,7 @@ export class RoomManager {
       this.rateLimiter.resetFailedJoin(ip);
 
       if (ws) this.localSockets.set(phoneToken, ws);
-      return { role, token: phoneToken, code: room.code, peerConnected: !!room.pcToken };
+      return { role, token: phoneToken, code: room.code, peerConnected: !!room.pcToken, initialPayload: room.lastPayload };
     }
   }
 
@@ -248,6 +249,7 @@ export class RoomManager {
 
     room.seenMessageIds.push(messageId);
     if (room.seenMessageIds.length > 100) room.seenMessageIds.shift();
+    room.lastPayload = text;
     await this.store.setRoom(code, room);
 
     const isSender = token === room.phoneToken;

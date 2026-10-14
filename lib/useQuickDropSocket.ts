@@ -74,7 +74,7 @@ export function useQuickDropSocket(initialRole?: Role) {
         const role = msg.role || 'send';
         const token = msg.token || msg.pcToken;
         sessionStorage.setItem(STORAGE_KEYS.ROOM_CODE, msg.code);
-        sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, token);
+        if (token) sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, token);
         sessionStorage.setItem(STORAGE_KEYS.ROLE, role);
         setState((prev) => ({
           ...prev,
@@ -86,6 +86,9 @@ export function useQuickDropSocket(initialRole?: Role) {
           expired: false,
           error: null,
         }));
+        if (msg.initialPayload) {
+          handleMessage({ t: 'msg', id: 'staged_init', d: msg.initialPayload, ts: Date.now() });
+        }
         break;
       }
       case 'joined': {
@@ -102,6 +105,9 @@ export function useQuickDropSocket(initialRole?: Role) {
           expired: false,
           error: null,
         }));
+        if (msg.initialPayload) {
+          handleMessage({ t: 'msg', id: 'staged_init', d: msg.initialPayload, ts: Date.now() });
+        }
         break;
       }
       case 'peer_joined': {

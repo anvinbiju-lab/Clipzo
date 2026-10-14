@@ -15,8 +15,8 @@ export type ClientMessage =
 
 // Server -> Client messages
 export type ServerMessage =
-  | { t: 'created'; code: string; pcToken?: string; token?: string; role?: Role }
-  | { t: 'joined'; role: Role; token: string; code: string; peerConnected: boolean }
+  | { t: 'created'; code: string; pcToken?: string; token?: string; role?: Role; initialPayload?: string }
+  | { t: 'joined'; role: Role; token: string; code: string; peerConnected: boolean; initialPayload?: string }
   | { t: 'peer_joined' }
   | { t: 'peer_left' }
   | { t: 'msg'; id: string; d: string; ts: number }
@@ -31,3 +31,13 @@ export interface SnippetItem {
   text: string;
   timestamp: number;
 }
+
+// Lab / batch program item
+export interface LabProgramItem {
+  id: string;
+  name: string;
+  code: string;
+  lang?: string;
+}
+
+export const PROGRAMS_PREFIX = 'PROGRAMS::';
