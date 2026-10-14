@@ -69,6 +69,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ t: 'ok' });
       }
 
+      case 'destroy': {
+        if (body.token) await roomManager.destroyRoom(body.token);
+        return NextResponse.json({ t: 'ok' });
+      }
+
       default:
         return NextResponse.json({ t: 'err', msg: 'Unknown command' }, { status: 400 });
     }

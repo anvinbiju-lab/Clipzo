@@ -145,14 +145,24 @@ describe('RoomManager', () => {
     expect((joinResult as any).initialPayload).toBe(stagedPrograms);
   });
 
-  it('should immediately wipe room and token upon leaveRoom', async () => {
+  it('should keep room alive upon client leaveRoom so receiver can still join', async () => {
     const manager = new RoomManager();
     const { code, token } = await manager.createRoom('127.0.0.1', 'send');
     await manager.leaveRoom(token);
 
+    // Room must still exist for receiver to join
+    const joinResult = await manager.joinRoom(code, 'receive', undefined, '127.0.0.4');
+    expect(joinResult.code).toBe(code);
+  });
+
+  it('should immediately wipe room and tokens upon destroyRoom', async () => {
+    const manager = new RoomManager();
+    const { code, token } = await manager.createRoom('127.0.0.1', 'send');
+    await manager.destroyRoom(token);
+
     // Room must no longer exist
     await expect(async () => {
-      await manager.joinRoom(code, 'receive', undefined, '127.0.0.4');
+      await manager.joinRoom(code, 'receive', undefined, '127.0.0.5');
     }).rejects.toThrow('Room not found');
   });
 });

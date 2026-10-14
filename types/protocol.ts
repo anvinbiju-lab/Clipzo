@@ -11,6 +11,7 @@ export type ClientMessage =
   | { t: 'join'; code: string; role: Role; token?: string }
   | { t: 'msg'; id: string; d: string; token: string }
   | { t: 'leave'; token: string }
+  | { t: 'destroy'; token: string }
   | { t: 'ping' };
 
 // Server -> Client messages

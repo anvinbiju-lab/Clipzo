@@ -90,15 +90,15 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold" style={{ color: 'var(--fg)' }}>
-                Lab Workbench
+              <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                Code Files
               </span>
               <span className="badge text-[11px] px-2 py-0.5" style={{ background: 'var(--success-subtle)', color: 'var(--success)' }}>
-                {programs.length} {programs.length === 1 ? 'Program' : 'Programs'} Staged
+                {programs.length} {programs.length === 1 ? 'File' : 'Files'}
               </span>
             </div>
             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-              Keyboard shortcuts: <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+C</kbd> Copy code · <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+1..9</kbd> Switch program
+              Shortcuts: <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+C</kbd> Copy code · <kbd className="px-1 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-300">Alt+1..9</kbd> Switch file
             </p>
           </div>
         </div>
@@ -108,7 +108,7 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
             type="button"
             onClick={handleDownloadAll}
             className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
-            title="Download all staged files"
+            title="Download all files"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -126,7 +126,7 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
                 className="btn-primary text-xs py-2 px-3"
                 style={{ background: 'var(--danger)', color: '#fff' }}
               >
-                Confirm Wipe
+                Confirm Delete
               </button>
               <button
                 type="button"
@@ -142,9 +142,9 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
               onClick={() => setShowBurnConfirm(true)}
               className="btn-ghost text-xs py-2 px-3 font-medium cursor-pointer"
               style={{ color: 'var(--danger)' }}
-              title="Purge this room and delete all programs from server"
+              title="Delete session and clear files from server"
             >
-              Burn & Wipe Room
+              Delete Session
             </button>
           )}
         </div>
@@ -171,7 +171,7 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
                 {idx + 1}
               </span>
               <span className="font-mono font-medium max-w-[140px] truncate">
-                {p.name || `Program ${idx + 1}`}
+                {p.name || `File ${idx + 1}`}
               </span>
               <span className="text-[10px] opacity-50 font-mono">
                 {lineCount}L
@@ -206,7 +206,7 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-800">
             <div className="flex items-center gap-3">
               <span className="text-base font-bold font-mono text-neutral-100">
-                {activeProgram.name || `Program ${activeIndex + 1}`}
+                {activeProgram.name || `File ${activeIndex + 1}`}
               </span>
               {activeProgram.lang && (
                 <span className="badge text-[11px] uppercase tracking-wider px-2 py-0.5" style={{ background: 'var(--bg-tertiary)', color: 'var(--fg-muted)' }}>
@@ -225,15 +225,16 @@ export function LabWorkbench({ programs, roomCode, onBurnWipe }: LabWorkbenchPro
                 className="btn-secondary text-xs py-2 px-3"
                 title="Download this file"
               >
-                Save File
+                Download File
               </button>
               <button
                 type="button"
                 onClick={() => handleCopy(activeProgram.code, activeProgram.id)}
                 className="btn-primary text-xs py-2 px-5 font-semibold tracking-wide"
                 style={copyStatus ? { background: 'var(--success)' } : {}}
+                title="Copy code to clipboard (Alt+C)"
               >
-                {copyStatus || 'Copy Code (Alt+C)'}
+                {copyStatus || 'Copy Code'}
               </button>
             </div>
           </div>

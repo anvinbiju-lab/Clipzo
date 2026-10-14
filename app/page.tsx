@@ -131,6 +131,7 @@ export default function HomePage() {
             history={socket.history}
             onJoinRoom={(c) => socket.joinRoom(c, 'receive')}
             onDisconnect={socket.disconnect}
+            onDestroySession={socket.destroySession}
             onClearMessage={socket.clearLatestMessage}
             onClearError={socket.clearError}
           />
@@ -146,6 +147,7 @@ export default function HomePage() {
             onCreateRoom={() => socket.createRoom('send')}
             onSendMessage={socket.sendMessage}
             onDisconnect={socket.disconnect}
+            onDestroySession={socket.destroySession}
             onClearError={socket.clearError}
           />
         )}

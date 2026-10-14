@@ -34,8 +34,8 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
               const { code, token, pcToken } = await roomManager.createRoom(ip, role);
               assignedToken = token;
               const joinResult = await roomManager.joinRoom(code, role, token, ip, ws);
-              sendJson(ws, { t: 'created', code, pcToken, token, role } as any);
-              sendJson(ws, { t: 'joined', role, token, code, peerConnected: joinResult.peerConnected });
+              sendJson(ws, { t: 'created', code, pcToken, token, role, initialPayload: joinResult.initialPayload } as any);
+              sendJson(ws, { t: 'joined', role, token, code, peerConnected: joinResult.peerConnected, initialPayload: joinResult.initialPayload });
             } catch (err: unknown) {
               const error = err as Error;
               sendJson(ws, { t: 'err', msg: error.message || 'Failed to create room' });
@@ -47,7 +47,7 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
             try {
               const result = await roomManager.joinRoom(msg.code, msg.role, msg.token, ip, ws);
               assignedToken = result.token;
-              sendJson(ws, { t: 'joined', role: result.role, token: result.token, code: result.code, peerConnected: result.peerConnected });
+              sendJson(ws, { t: 'joined', role: result.role, token: result.token, code: result.code, peerConnected: result.peerConnected, initialPayload: result.initialPayload });
               await roomManager.peerJoined(result.token);
             } catch (err: unknown) {
               const error = err as Error;
@@ -78,6 +78,13 @@ export function setupWebSocketServer(wss: WebSocketServer): void {
           case 'leave': {
             if (msg.token) {
               await roomManager.leaveRoom(msg.token);
+            }
+            break;
+          }
+
+          case 'destroy': {
+            if (msg.token) {
+              await roomManager.destroyRoom(msg.token);
             }
             break;
           }

@@ -25,13 +25,13 @@ export function MessageRenderer({ text }: { text: string }) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="badge text-[11px]" style={{ background: 'var(--success-subtle)', color: 'var(--success)' }}>
-            💻 {programs.length} Lab Programs Staged
+            {programs.length} {programs.length === 1 ? 'Code File' : 'Code Files'}
           </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
           {programs.map((p, idx) => (
             <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-neutral-800 bg-neutral-900/80 text-xs font-mono">
-              <span className="font-semibold text-neutral-200 truncate">{p.name || `Program ${idx + 1}`}</span>
+              <span className="font-semibold text-neutral-200 truncate">{p.name || `File ${idx + 1}`}</span>
               <span className="text-[10px] text-neutral-500">{p.code.split('\n').length} lines</span>
             </div>
           ))}

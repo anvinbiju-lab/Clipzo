@@ -412,6 +412,17 @@ export function useQuickDropSocket(initialRole?: Role) {
     });
   }, []);
 
+  const destroySession = useCallback(() => {
+    if (stateRef.current.token) {
+      if (!isHttpMode.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try { wsRef.current.send(JSON.stringify({ t: 'destroy', token: stateRef.current.token })); } catch {}
+      } else {
+        sendHttp({ t: 'destroy', token: stateRef.current.token });
+      }
+    }
+    disconnect();
+  }, [disconnect]);
+
   const clearError = useCallback(() => setState((prev) => ({ ...prev, error: null })), []);
   const clearLatestMessage = useCallback(() => setState((prev) => ({ ...prev, latestMessage: null })), []);
 
@@ -430,6 +441,7 @@ export function useQuickDropSocket(initialRole?: Role) {
     joinRoom,
     sendMessage,
     disconnect,
+    destroySession,
     clearError,
     clearLatestMessage,
   };

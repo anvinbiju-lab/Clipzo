@@ -312,20 +312,55 @@ export class RoomManager {
 
   public async leaveRoom(token: string): Promise<void> {
     const code = await this.store.getCodeByToken(token);
+    if (!code) return;
+
+    const room = await this.store.getRoom(code);
+    if (!room) return;
+
+    await this.store.delToken(token);
+    this.localSockets.delete(token);
+
+    const isSender = token === room.phoneToken;
+    const isReceiver = token === room.pcToken;
+
+    if (isSender) {
+      room.phoneToken = null;
+      if (room.pcToken && this.localSockets.has(room.pcToken)) {
+        const ws = this.localSockets.get(room.pcToken);
+        try { ws.send(JSON.stringify({ t: 'peer_left' })); } catch {}
+      }
+    } else if (isReceiver) {
+      room.pcToken = '';
+      if (room.phoneToken && this.localSockets.has(room.phoneToken)) {
+        const ws = this.localSockets.get(room.phoneToken);
+        try { ws.send(JSON.stringify({ t: 'peer_left' })); } catch {}
+      }
+    }
+
+    // Persist room updates so the room stays intact and accessible via its 2-digit code
+    await this.store.setRoom(code, room);
+  }
+
+  public async destroyRoom(token: string): Promise<void> {
+    const code = await this.store.getCodeByToken(token);
     if (code) {
       const room = await this.store.getRoom(code);
       if (room) {
-        await this.store.delToken(room.pcToken);
-        if (room.phoneToken) await this.store.delToken(room.phoneToken);
-        
-        // Notify local socket if active
-        if (room.pcToken && this.localSockets.has(room.pcToken)) {
-          const ws = this.localSockets.get(room.pcToken);
-          try { ws.send(JSON.stringify({ t: 'expired' })); ws.close(); } catch {}
+        if (room.pcToken) {
+          await this.store.delToken(room.pcToken);
+          if (this.localSockets.has(room.pcToken)) {
+            const ws = this.localSockets.get(room.pcToken);
+            try { ws.send(JSON.stringify({ t: 'expired' })); ws.close(); } catch {}
+            this.localSockets.delete(room.pcToken);
+          }
         }
-        if (room.phoneToken && this.localSockets.has(room.phoneToken)) {
-          const ws = this.localSockets.get(room.phoneToken);
-          try { ws.send(JSON.stringify({ t: 'expired' })); ws.close(); } catch {}
+        if (room.phoneToken) {
+          await this.store.delToken(room.phoneToken);
+          if (this.localSockets.has(room.phoneToken)) {
+            const ws = this.localSockets.get(room.phoneToken);
+            try { ws.send(JSON.stringify({ t: 'expired' })); ws.close(); } catch {}
+            this.localSockets.delete(room.phoneToken);
+          }
         }
       }
       await this.store.delRoom(code);

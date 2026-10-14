@@ -21,6 +21,7 @@ interface ReceiverViewProps {
   initialCode?: string;
   onJoinRoom: (code: string) => void;
   onDisconnect: () => void;
+  onDestroySession?: () => void;
   onClearMessage: () => void;
   onClearError: () => void;
 }
@@ -37,6 +38,7 @@ export function ReceiverView({
   initialCode = '',
   onJoinRoom,
   onDisconnect,
+  onDestroySession,
   onClearMessage,
   onClearError,
 }: ReceiverViewProps) {
@@ -223,7 +225,10 @@ export function ReceiverView({
         <LabWorkbench
           programs={labPrograms}
           roomCode={code || ''}
-          onBurnWipe={handleLeave}
+          onBurnWipe={() => {
+            if (onDestroySession) onDestroySession();
+            else handleLeave();
+          }}
         />
       ) : (
         <>

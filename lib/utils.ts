@@ -3,9 +3,9 @@ export function formatSnippetText(text: string): string {
     try {
       const programs = JSON.parse(text.substring('PROGRAMS::'.length));
       const names = programs.map((p: any) => p.name).slice(0, 2).join(', ');
-      return `💻 ${programs.length} Lab Programs (${names}${programs.length > 2 ? '…' : ''})`;
+      return `${programs.length} ${programs.length === 1 ? 'File' : 'Files'} (${names}${programs.length > 2 ? '…' : ''})`;
     } catch {
-      return '💻 Lab Programs Set';
+      return 'Code Files';
     }
   }
   if (text.startsWith('FILES::')) {

@@ -19,6 +19,7 @@ interface SenderViewProps {
   onCreateRoom: (role?: Role) => void;
   onSendMessage: (text: string) => Promise<boolean>;
   onDisconnect: () => void;
+  onDestroySession?: () => void;
   onClearError: () => void;
 }
 
@@ -33,6 +34,7 @@ export function SenderView({
   onCreateRoom,
   onSendMessage,
   onDisconnect,
+  onDestroySession: _onDestroySession,
   onClearError,
 }: SenderViewProps) {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -328,19 +330,18 @@ export function SenderView({
                 : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
-            Quick Snippet / File
+            Single Item
           </button>
           <button
             type="button"
             onClick={() => setMode('lab')}
-            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
+            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-all ${
               mode === 'lab'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm'
+                ? 'bg-neutral-800 text-neutral-100 shadow-sm'
                 : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Lab Locker (Multi-Program)
+            Multiple Files
           </button>
         </div>
       </div>
@@ -358,7 +359,7 @@ export function SenderView({
               value={textPayload}
               onChange={(e) => setTextPayload(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Paste your code or program here… (Ctrl+Enter to send)"
+              placeholder="Paste text or code here… (Ctrl+Enter to send)"
               rows={6}
               className="input-field font-mono text-sm leading-relaxed resize-y"
               style={{ minHeight: '120px' }}
@@ -389,18 +390,18 @@ export function SenderView({
           <FileUploader onSendFile={(payload) => onSendMessage(payload)} />
         </>
       ) : (
-        /* Lab Mode: Multi-Program Stager */
+        /* Multi-File Code Stager */
         <div className="card-elevated p-5 flex flex-col gap-4" style={{ borderColor: 'var(--accent)', borderWidth: '1px' }}>
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-neutral-800">
             <div>
-              <div className="text-sm font-bold text-neutral-100 flex items-center gap-2">
-                <span>Lab Locker Programs</span>
+              <div className="text-sm font-semibold text-neutral-100 flex items-center gap-2">
+                <span>Code Files</span>
                 <span className="badge text-[11px] px-2 py-0.5" style={{ background: 'var(--success-subtle)', color: 'var(--success)' }}>
-                  {labPrograms.length} {labPrograms.length === 1 ? 'Program' : 'Programs'}
+                  {labPrograms.length} {labPrograms.length === 1 ? 'File' : 'Files'}
                 </span>
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Stage multiple programs or outputs. Pick up on your lab PC using code <span className="font-mono font-bold text-neutral-200">{code}</span>.
+                Saved files can be accessed from any device using code <span className="font-mono font-bold text-neutral-200">{code}</span>.
               </p>
             </div>
 
@@ -417,7 +418,7 @@ export function SenderView({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
-                title="Batch import multiple code files"
+                title="Import local files"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -430,9 +431,9 @@ export function SenderView({
                 type="button"
                 onClick={handleAddProgram}
                 className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                title="Add another program tab"
+                title="Add file"
               >
-                <span>+ Add Program</span>
+                <span>+ Add File</span>
               </button>
             </div>
           </div>
@@ -452,7 +453,7 @@ export function SenderView({
                   }`}
                 >
                   <span className="font-mono text-[11px] opacity-60">#{idx + 1}</span>
-                  <span className="font-mono truncate max-w-[120px]">{p.name || `Program ${idx + 1}`}</span>
+                  <span className="font-mono truncate max-w-[120px]">{p.name || `File ${idx + 1}`}</span>
                   {labPrograms.length > 1 && (
                     <button
                       type="button"
@@ -461,7 +462,7 @@ export function SenderView({
                         handleRemoveProgram(idx);
                       }}
                       className="ml-1 text-neutral-500 hover:text-red-400 text-xs leading-none"
-                      title="Remove program"
+                      title="Remove file"
                     >
                       ×
                     </button>
@@ -477,19 +478,19 @@ export function SenderView({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="sm:col-span-2">
                   <label className="text-xs font-medium text-neutral-400 mb-1 block">
-                    Program / File Name
+                    File Name
                   </label>
                   <input
                     type="text"
                     value={labPrograms[activeLabIndex].name}
                     onChange={(e) => updateActiveProgram('name', e.target.value)}
-                    placeholder="e.g. 01_fcfs.c or Bankers.java"
+                    placeholder="e.g. main.c or solution.py"
                     className="input-field text-xs font-mono py-2"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-neutral-400 mb-1 block">
-                    Language / Mode
+                    Language
                   </label>
                   <select
                     value={labPrograms[activeLabIndex].lang || 'c'}
@@ -502,7 +503,7 @@ export function SenderView({
                     <option value="py">Python (.py)</option>
                     <option value="sql">SQL (.sql)</option>
                     <option value="sh">Shell (.sh)</option>
-                    <option value="txt">Output / Plain Text</option>
+                    <option value="txt">Plain Text (.txt)</option>
                   </select>
                 </div>
               </div>
@@ -510,7 +511,7 @@ export function SenderView({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-medium text-neutral-400">
-                    Source Code or Output
+                    File Content
                   </label>
                   <span className="text-[11px] font-mono text-neutral-500">
                     {labPrograms[activeLabIndex].code.split('\n').length} lines · {labPrograms[activeLabIndex].code.length} chars
@@ -519,7 +520,7 @@ export function SenderView({
                 <textarea
                   value={labPrograms[activeLabIndex].code}
                   onChange={(e) => updateActiveProgram('code', e.target.value)}
-                  placeholder="Paste your source code or program output here…"
+                  placeholder="Paste code or file contents here…"
                   rows={8}
                   className="input-field font-mono text-xs leading-relaxed resize-y"
                   style={{ minHeight: '160px' }}
@@ -528,10 +529,10 @@ export function SenderView({
             </div>
           )}
 
-          {/* Send / Stage Action */}
+          {/* Send / Save Action */}
           <div className="mt-2 pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs font-mono text-neutral-400">
-              {labPrograms.filter((p) => p.code.trim().length > 0).length} of {labPrograms.length} programs ready
+              {labPrograms.filter((p) => p.code.trim().length > 0).length} of {labPrograms.length} files ready
             </span>
             <button
               type="button"
@@ -550,12 +551,12 @@ export function SenderView({
               }
             >
               {labSendState === 'sending'
-                ? 'Staging…'
+                ? 'Saving…'
                 : labSendState === 'sent'
-                ? 'Staged to Lab PC ✓'
+                ? 'Saved ✓'
                 : labSendState === 'failed'
                 ? 'Failed'
-                : `Stage & Send ${labPrograms.length} Programs`}
+                : labPrograms.length === 1 ? 'Save File' : `Save ${labPrograms.length} Files`}
             </button>
           </div>
         </div>
